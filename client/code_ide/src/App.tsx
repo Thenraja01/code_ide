@@ -1,13 +1,13 @@
 
 import './App.css'
+import Layout from './layers_UI/Layout/Layout'
+
 
 function App() {
 
   return (
     <>
-      <div>
-        <h1>code_ide</h1>
-       </div>
+  <Layout />
     </>
   )
 }
