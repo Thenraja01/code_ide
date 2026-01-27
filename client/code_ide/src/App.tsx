@@ -1,13 +1,13 @@
 
 import './App.css'
-import Layout from './layers_UI/Layout/Layout'
-
-
+// import CodeEditor from "./components/Editor/CodeEditor.jsx"
+import BaseRoutes from "./Routes/BaseRoutes.tsx"
 function App() {
 
   return (
     <>
-  <Layout />
+  <BaseRoutes/>
+  
     </>
   )
 }
