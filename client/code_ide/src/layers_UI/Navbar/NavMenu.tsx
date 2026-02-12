@@ -1,41 +1,42 @@
 import { Button } from "@/components/ui/button";
 import { pages } from "./Navbar";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@radix-ui/react-dropdown-menu";
-import { Menu, X } from "lucide-react";
+
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+import { Menu } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+
 export default function NavMenu() {
-    const navigate=useNavigate()
-    return (
-        <div className="md:flex items-center justify-between p-2">
-            <div className="md:hidden flex  ">
-                {/* <button onClick={() => setIsOpen(!isOpen)} className="text-gray-700">
-                        {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-                    </button>
-                    <NavMenu /> */}
-            </div>
-            <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="icon">
-                        <X className="h-[1.2rem] w-[1.2rem] scale-100 rotate-0 transition-all dark:scale-0 dark:-rotate-90" />
-                        <Menu className="absolute h-[1.2rem] w-[1.2rem] scale-0 rotate-90 transition-all dark:scale-100 dark:rotate-0" />
-                        <span className="sr-only">Side bar</span>
-                    </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                    {pages.map((component) => (
-                        <DropdownMenuItem onClick={() => {navigate(`${component.href}`)}}>
-                                <div className="flex items-center font-medium text-pretty cursor-pointer gap-2 p-2 m-2
-                                 hover:text-chart-2 ">
-                                {component.icons}
-                                {component.title}
-                        </div>
-                            </DropdownMenuItem>
-                    ))}
+  const navigate = useNavigate();
 
-                </DropdownMenuContent>
-            </DropdownMenu>
+  return (
+    <div className="md:hidden">
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="icon">
+            <Menu className="h-5 w-5" />
+          </Button>
+        </DropdownMenuTrigger>
 
-
-        </div>
-    )
-};
+        <DropdownMenuContent align="end" className="w-44 animate-in fade-in zoom-in-95
+">
+          {pages.map((page) => (
+            <DropdownMenuItem
+              key={page.title}
+              onClick={() => navigate(page.href)}
+              className="flex items-center gap-2 cursor-pointer"
+            >
+              {page.icons}
+              <span className="capitalize">{page.title}</span>
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
