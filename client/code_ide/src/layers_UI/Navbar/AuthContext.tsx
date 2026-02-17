@@ -2,6 +2,7 @@ import { createContext, useContext, useState,ReactNode, type Dispatch, type SetS
 type User = {
   id: string;
   name: string;
+  password:string;
   email: string;
 } | null;
 

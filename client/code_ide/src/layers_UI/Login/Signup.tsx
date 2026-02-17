@@ -20,22 +20,74 @@ import {
   Eye,
   EyeOff,
 } from 'lucide-react'
+import { validatePassword, validateUsername, ValidatorEmailorPhone, ConformPassword } from './Validator'
+import { useAuth } from '../Navbar/AuthContext'
+import { useTheme } from '@/components/Provider/themeprovider'
+import { toast } from 'sonner'
+import { Toaster } from '@/components/ui/sonner'
 
 const Signup = () => {
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const { login } = useAuth()
+  const { theme } = useTheme()
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setLoading(true)
 
-    setTimeout(() => {
+    const form = new FormData(e.currentTarget)
+    const username = String(form.get('username') || '')
+    const email = String(form.get('email') || '')
+    const password = String(form.get('password') || '')
+    const confirmPassword = String(form.get('confirmpassword') || '')
+
+    const usernameError = validateUsername(username)
+    const emailError = ValidatorEmailorPhone(email)
+    const passwordError = validatePassword(password)
+    const confirmPasswordError = ConformPassword(password, confirmPassword)
+
+    if (usernameError) {
+      toast.error(usernameError)
       setLoading(false)
-    }, 2000)
+      return
+    }
+    if (emailError) {
+      toast.error(emailError)
+      setLoading(false)
+      return
+    }
+    if (passwordError) {
+      toast.error(passwordError)
+      setLoading(false)
+      return
+    }
+    if (confirmPasswordError) {
+      toast.error(confirmPasswordError)
+      setLoading(false)
+      return
+    }
+
+    // Simulate signup/login
+    try {
+      login({
+        id: username, // Using username as ID for now
+        name: username,
+        password: password,
+        email: email
+      })
+      toast.success("Account created successfully!")
+    } catch (error) {
+      console.error(error)
+      toast.error("Failed to create account")
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
     <div className="w-full max-w-lg">
+      <Toaster position='top-center' theme={theme} />
       <Card
         className="
           min-h-[660px]
@@ -74,6 +126,7 @@ const Signup = () => {
             <div className="relative">
               <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
+                name="username"
                 required
                 placeholder="Choose a username"
                 className="pl-10 h-11"
@@ -89,8 +142,9 @@ const Signup = () => {
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
+                name="email"
                 required
-                type="email"
+                type="text"
                 placeholder="you@example.com"
                 className="pl-10 h-11"
               />
@@ -105,6 +159,7 @@ const Signup = () => {
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
+                name="password"
                 required
                 type={showPassword ? 'text' : 'password'}
                 placeholder="Create a strong password"
@@ -123,6 +178,24 @@ const Signup = () => {
               </button>
             </div>
           </div>
+
+          {/* Confirm Password */}
+          <div className="space-y-2">
+            <label className="text-xs font-medium uppercase text-muted-foreground">
+              Confirm Password
+            </label>
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                name="confirmpassword"
+                required
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Confirm your password"
+                className="pl-10 pr-10 h-11"
+              />
+            </div>
+          </div>
+
 
           {/* Submit */}
           <Button

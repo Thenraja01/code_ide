@@ -17,6 +17,7 @@ export default function Layout({ children}:any) {
       <ThemeProvider
       defaultTheme='dark' storageKey="vite-ui-theme">
       <main className="grow">
+        
         <Outlet/>
       </main>
       </ThemeProvider>

@@ -7,6 +7,8 @@ import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
+import { toast } from 'sonner'
+import { Toaster } from '@/components/ui/sonner'
 import {
   Github,
   User,
@@ -18,29 +20,59 @@ import {
 import { Link } from 'react-router-dom'
 import { validatePassword, validateUsername } from './Validator'
 import { useAuth } from '../Navbar/AuthContext'
+import { useTheme } from '@/components/Provider/themeprovider'
 const Login = (): JSX.Element => {
   const [loading, setLoading] = useState<boolean>(false)
-   const [error, setError] = useState<boolean>(true)
-  const {user,login,logout,setUser}=useAuth()
+  const [error, setError] = useState<boolean>(false)
+  const { login, logout, } = useAuth()
+  const { theme } = useTheme()
   const handleSubmit = (event: FormEvent<HTMLFormElement>): void => {
-    try{
+    event.preventDefault()
+    setLoading(true)
+    setError(false)
 
-      event.preventDefault()
-      setLoading(true)
-      
+    const form = new FormData(event.currentTarget)
+    const username = String(form.get('username') || '')
+    const password = String(form.get('password') || '')
+
+    const usernameError = validateUsername(username)
+    const passwordError = validatePassword(password)
+
+    if (usernameError) {
+      toast.warning(usernameError)
+      setError(true)
+      setLoading(false)
+      return
     }
-    catch(err){
+    if (passwordError) {
+      toast.warning(passwordError)
+      setError(true)
+      setLoading(false)
+      return
+    }
+
+    try {
+      login({
+        id: username,
+        name: username,
+        password: password,
+        email: ''
+      })
+      toast.success('Logged in successfully')
+    } catch (err) {
+      toast.warning('Login failed')
+      setError(true)
       logout()
       console.log(err)
-    }
-    // simulate API call
-    setTimeout(() => {
+    } finally {
       setLoading(false)
-    }, 2000)
+    }
   }
+
 
   return (
     <div className="w-full max-w-lg">
+      <Toaster position='top-center' theme={theme} className='text-chart-5' />
       <Card className="  min-h-660px
           p-10 md:p-12
           flex flex-col justify-center
@@ -48,7 +80,7 @@ const Login = (): JSX.Element => {
           border
           shadow-2xl
           bg-card">
-        
+
         {/* Logo */}
         <div className="flex justify-center mb-4">
           <div className="h-14 w-14 rounded-2xl bg-primary text-primary-foreground flex items-center justify-center shadow-md">
@@ -110,7 +142,7 @@ const Login = (): JSX.Element => {
             {loading && <Loader2 className="h-4 w-4 animate-spin" />}
             {loading ? 'login to…' : 'Login'}
           </Button>
-         
+
         </form>
 
         {/* Divider */}
@@ -118,7 +150,7 @@ const Login = (): JSX.Element => {
           <Separator />
         </div>
 
-         {/* Signup*/}
+        {/* Signup*/}
         <p className="mt-10 text-center text-sm text-muted-foreground">
           Don't Have an account?{' '}
           <Link
