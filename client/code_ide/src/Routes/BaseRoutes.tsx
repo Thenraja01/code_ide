@@ -7,7 +7,8 @@ import AuthLayout from '@/layers_UI/Login/AuthLayout'
 import Signup from '@/layers_UI/Login/Signup'
 import Dashboard from '@/layers_UI/Section/Dashboard/Dashboard'
 import CodeEditor from '@/components/Editor/CodeEditor'
-
+import DashBoardLayout from '@/layers_UI/utils/DashBoardLayout'
+import DocsHome from '@/layers_UI/Home/DashHome'
 export default function BaseRoutes() {
   return (
     <Routes>
@@ -22,8 +23,10 @@ export default function BaseRoutes() {
         <Route path="signup" element={<Signup />} />
       </Route>
 
-      <Route path="dashboard" element={<Dashboard />}>
+      <Route path="dashboard" element={<DashBoardLayout/>}>
         <Route index element={<Dashboard />} />
+        <Route path='home' element={<DocsHome />} />
+
         <Route path="editor" element={<CodeEditor />} />
         <Route path="settings" element={<Signup />} />
       </Route>

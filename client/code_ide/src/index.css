@@ -81,7 +81,7 @@
   --chart-2: #06b6d4;
   --chart-3: #10b981;
   --chart-4: #f59e0b;
-  --chart-5: #ef4444;
+  --chart-5: #e30202;
 }.dark {
   --background: #0b0b0f;
   --foreground: #f4f4f5;
@@ -115,7 +115,7 @@
   --chart-2: #22d3ee;
   --chart-3: #34d399;
   --chart-4: #fbbf24;
-  --chart-5: #f87171;
+  --chart-5: #f05d5d;
 }
 
 @layer base {

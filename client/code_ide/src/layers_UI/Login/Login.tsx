@@ -7,7 +7,6 @@ import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
-
 import {
   Github,
   User,
@@ -17,14 +16,23 @@ import {
   Chrome
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
-
+import { validatePassword, validateUsername } from './Validator'
+import { useAuth } from '../Navbar/AuthContext'
 const Login = (): JSX.Element => {
   const [loading, setLoading] = useState<boolean>(false)
-
+   const [error, setError] = useState<boolean>(true)
+  const {user,login,logout,setUser}=useAuth()
   const handleSubmit = (event: FormEvent<HTMLFormElement>): void => {
-    event.preventDefault()
-    setLoading(true)
+    try{
 
+      event.preventDefault()
+      setLoading(true)
+      
+    }
+    catch(err){
+      logout()
+      console.log(err)
+    }
     // simulate API call
     setTimeout(() => {
       setLoading(false)
@@ -100,8 +108,9 @@ const Login = (): JSX.Element => {
             className="w-full flex items-center justify-center gap-2"
           >
             {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-            {loading ? 'Signing in…' : 'Login'}
+            {loading ? 'login to…' : 'Login'}
           </Button>
+         
         </form>
 
         {/* Divider */}
