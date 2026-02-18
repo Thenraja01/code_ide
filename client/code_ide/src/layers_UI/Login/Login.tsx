@@ -19,7 +19,7 @@ import {
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { validatePassword, validateUsername } from './Validator'
-import { useAuth } from '../Navbar/AuthContext'
+import { useAuth } from '../utils/Context/AuthContext'
 import { useTheme } from '@/components/Provider/themeprovider'
 const Login = (): JSX.Element => {
   const [loading, setLoading] = useState<boolean>(false)

@@ -1,6 +1,6 @@
 import { useLocation } from "react-router-dom";
-import { ModeToggle } from "./toggletheme";
-import SearchBar from "./Searchbar.tsx";
+import { ModeToggle } from "../../../components/Provider/Theme/toggletheme.tsx";
+import SearchBar from "../Searchbar.tsx";
 
 export function AppNavbar() {
   const location = useLocation();

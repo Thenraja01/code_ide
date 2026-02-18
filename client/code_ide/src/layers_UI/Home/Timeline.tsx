@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
+import { useHandleNavigate } from "../utils/CustomFunction/HandleNavigate";
 export default function Timeline() {
      const data = [
     {
@@ -24,10 +25,7 @@ export default function Timeline() {
        link:"dashboard"
     },
   ];
-  const navigate= useNavigate()
-const  HandleNavigate=(path:String)=>{
-  navigate(`/${path}`)
-}
+const HandleNavigate=useHandleNavigate()
     return(
         <>
         

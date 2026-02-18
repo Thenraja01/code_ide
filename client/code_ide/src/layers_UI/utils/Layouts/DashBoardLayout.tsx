@@ -1,7 +1,7 @@
 import { Outlet } from "react-router-dom";
-import Navbar from "../Navbar/Navbar";
+import Navbar from "../../Navbar/Navbar";
 import type { JSX } from "react";
-import Sidebar from "../Section/Dashboard/Sidebar";
+import Sidebar from "../../Navbar/Sidebar";
 
 export default function DashBoardLayout(): JSX.Element {
   return (

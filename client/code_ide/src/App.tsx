@@ -8,11 +8,10 @@ function App() {
 
   return (
     <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
-      
-  <BrowserRouter>
-  <BaseRoutes/>
-       
-        </BrowserRouter>
+
+      <BrowserRouter>
+        <BaseRoutes />
+      </BrowserRouter>
     </ThemeProvider>
   )
 }

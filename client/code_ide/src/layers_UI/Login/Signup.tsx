@@ -21,7 +21,7 @@ import {
   EyeOff,
 } from 'lucide-react'
 import { validatePassword, validateUsername, ValidatorEmailorPhone, ConformPassword } from './Validator'
-import { useAuth } from '../Navbar/AuthContext'
+import { useAuth } from '../utils/Context/AuthContext'
 import { useTheme } from '@/components/Provider/themeprovider'
 import { toast } from 'sonner'
 import { Toaster } from '@/components/ui/sonner'

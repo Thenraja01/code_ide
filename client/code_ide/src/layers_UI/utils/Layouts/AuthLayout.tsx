@@ -1,5 +1,5 @@
 import { Outlet } from "react-router-dom";
-import Navbar from "../Navbar/MarketingNavbar";
+import Navbar from "../../Navbar/MarketingNavbar/MarketingNavbar";
 import type { JSX } from "react";
 
 export default function AuthLayout(): JSX.Element {

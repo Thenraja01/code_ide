@@ -1,13 +1,13 @@
 import { Route, Routes } from 'react-router-dom'
-import Layout from '../layers_UI/utils/Layout'
+import Layout from '../layers_UI/utils/Layouts/Layout'
 import Home from '../layers_UI/Home/Home'
 import Docs from '@/layers_UI/Docpage/Docs.tsx'
 import Login from '@/layers_UI/Login/Login'
-import AuthLayout from '@/layers_UI/Login/AuthLayout'
+import AuthLayout from '@/layers_UI/utils/Layouts/AuthLayout'
 import Signup from '@/layers_UI/Login/Signup'
 import Dashboard from '@/layers_UI/Section/Dashboard/Dashboard'
 import CodeEditor from '@/components/Editor/CodeEditor'
-import DashBoardLayout from '@/layers_UI/utils/DashBoardLayout'
+import DashBoardLayout from '@/layers_UI/utils/Layouts/DashBoardLayout'
 import DocsHome from '@/layers_UI/Home/DashHome'
 export default function BaseRoutes() {
   return (

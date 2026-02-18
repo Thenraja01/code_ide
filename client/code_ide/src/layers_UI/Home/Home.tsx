@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import Timeline from "./Timeline";
-import { useHandleNavigate } from "../Navbar/HandleNavigate";
+import { useHandleNavigate } from "../utils/CustomFunction/HandleNavigate";
 
 export default function Home() {
 

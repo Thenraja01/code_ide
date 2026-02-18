@@ -1,9 +1,9 @@
 // import Footer from "../components/ui/Footer";
-import Navbar from "../Navbar/MarketingNavbar";
+import Navbar from "../../Navbar/MarketingNavbar/MarketingNavbar";
 import { Outlet } from "react-router-dom";
 import { ThemeProvider } from "@/components/Provider/themeprovider";
 
-export default function Layout({ children}:any) {
+export default function Layout() {
 
 
   return (

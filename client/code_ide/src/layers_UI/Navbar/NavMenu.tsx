@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { pages } from "./MarketingNavbar";
+import { pages } from "./MarketingNavbar/MarketingNavbar";
 
 import {
   DropdownMenu,

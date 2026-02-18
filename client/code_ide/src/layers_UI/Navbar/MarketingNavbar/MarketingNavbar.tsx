@@ -3,16 +3,14 @@ import {
     NavigationMenuItem,
     NavigationMenuList,
 } from "@/components/ui/navigation-menu";
-
 import { AlignHorizontalDistributeCenter, Dock, HomeIcon } from "lucide-react";
 import codespace_logo from "@/../public/icons/codespace_icon_logo.svg";
 import codespacelight from "@/../public/icons/light_code_space.svg";
-
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/components/Provider/themeprovider";
-import { ModeToggle } from "./toggletheme";
-import NavMenu from "./NavMenu";
-import { useHandleNavigate } from "./HandleNavigate";
+import { ModeToggle } from "@/components/Provider/Theme/toggletheme"; 
+import NavMenu from "../NavMenu";
+import { useHandleNavigate } from "@/layers_UI/utils/CustomFunction/HandleNavigate";
 
 export const pages = [
     {
