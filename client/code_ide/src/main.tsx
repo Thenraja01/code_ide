@@ -5,8 +5,8 @@ import { AuthProvider } from './layers_UI/utils/Context/AuthContext.tsx'
 
 createRoot(document.getElementById('root')!).render(
  
+    // auth provider provide authentication contents
     <AuthProvider>
     <App />
     </AuthProvider>
-    // auth provider provide authentication contents
 )

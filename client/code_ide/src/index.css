@@ -45,77 +45,78 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
-}:root {
+}
+
+:root {
   --radius: 0.625rem;
 
-  /* LIGHT THEME */
   --background: oklch(98% 0 0);
   --foreground: oklch(0.15 0.02 260);
-
   --card: oklch(100% 0 0);
   --card-foreground: oklch(0.15 0.02 260);
-
   --popover: oklch(100% 0 0);
   --popover-foreground: oklch(0.15 0.02 260);
-
-  /* Primary — soft purple for light mode */
   --primary: #8B5CF6;
   --primary-foreground: #ffffff;
-
   --secondary: oklch(84.522% 0.0001 271.152);
   --secondary-foreground: oklch(0% 0 0);
-
   --muted: oklch(95% 0.01 260);
   --muted-foreground: oklch(0.45 0.02 260);
-
   --accent: oklch(94% 0.02 280);
   --accent-foreground: oklch(0.2 0.02 260);
-
   --destructive: #ef4444;
-
   --border: oklch(90% 0.01 260);
   --input: oklch(90% 0.01 260);
   --ring: #8B5CF6;
-
   --chart-1: #8B5CF6;
   --chart-2: #06b6d4;
   --chart-3: #10b981;
   --chart-4: #f59e0b;
   --chart-5: #e30202;
-}.dark {
+
+  --sidebar: #f5f3ff;
+  --sidebar-foreground: oklch(0.15 0.02 260);
+  --sidebar-primary: #8B5CF6;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #ede9fe;
+  --sidebar-accent-foreground: #5b21b6;
+  --sidebar-border: oklch(90% 0.01 260);
+  --sidebar-ring: #8B5CF6;
+}
+
+.dark {
   --background: #0b0b0f;
   --foreground: #f4f4f5;
-
   --card: #111118;
   --card-foreground: #f4f4f5;
-
   --popover: #111118;
   --popover-foreground: #f4f4f5;
-
-  /* 🔥 YOUR CUSTOM PRIMARY */
   --primary: #7200AB;
   --primary-foreground: #ffffff;
-
   --secondary: #1a1a22;
   --secondary-foreground: #f4f4f5;
-
   --muted: #1a1a22;
   --muted-foreground: #a1a1aa;
-
   --accent: #2a1240;
   --accent-foreground: #f4f4f5;
-
   --destructive: #ef4444;
-
   --border: rgba(255,255,255,0.1);
   --input: rgba(255,255,255,0.15);
   --ring: #7200AB;
-
   --chart-1: #7200AB;
   --chart-2: #22d3ee;
   --chart-3: #34d399;
   --chart-4: #fbbf24;
   --chart-5: #f05d5d;
+
+  --sidebar: #0e0e16;
+  --sidebar-foreground: #f4f4f5;
+  --sidebar-primary: #7200AB;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #1e1030;
+  --sidebar-accent-foreground: #d8b4fe;
+  --sidebar-border: rgba(255,255,255,0.08);
+  --sidebar-ring: #7200AB;
 }
 
 @layer base {
@@ -124,5 +125,96 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
   }
+}
+
+/* ─── Custom Scrollbar ─────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: var(--primary); }
+
+/* ─── Stat Card Gradients ──────────────────────────────────────── */
+.stat-gradient-purple {
+  background: linear-gradient(135deg, rgba(139,92,246,0.12) 0%, rgba(114,0,171,0.06) 100%);
+  border-left: 3px solid var(--primary);
+}
+.stat-gradient-cyan {
+  background: linear-gradient(135deg, rgba(6,182,212,0.12) 0%, rgba(34,211,238,0.06) 100%);
+  border-left: 3px solid var(--chart-2);
+}
+.stat-gradient-green {
+  background: linear-gradient(135deg, rgba(16,185,129,0.12) 0%, rgba(52,211,153,0.06) 100%);
+  border-left: 3px solid var(--chart-3);
+}
+.stat-gradient-amber {
+  background: linear-gradient(135deg, rgba(245,158,11,0.12) 0%, rgba(251,191,36,0.06) 100%);
+  border-left: 3px solid var(--chart-4);
+}
+
+/* ─── Glow Icon Backgrounds ────────────────────────────────────── */
+.icon-glow-purple { background: rgba(139,92,246,0.15); color: var(--primary); }
+.icon-glow-cyan   { background: rgba(6,182,212,0.15);  color: var(--chart-2); }
+.icon-glow-green  { background: rgba(16,185,129,0.15); color: var(--chart-3); }
+.icon-glow-amber  { background: rgba(245,158,11,0.15); color: var(--chart-4); }
+.icon-glow-red    { background: rgba(239,68,68,0.15);  color: #ef4444; }
+
+/* ─── Fade-in-up ───────────────────────────────────────────────── */
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-in-up  { animation: fade-in-up 0.5s ease both; }
+.delay-100   { animation-delay: 0.10s; }
+.delay-200   { animation-delay: 0.20s; }
+.delay-300   { animation-delay: 0.30s; }
+.delay-400   { animation-delay: 0.40s; }
+.delay-500   { animation-delay: 0.50s; }
+
+/* ─── Glass Card ───────────────────────────────────────────────── */
+.glass-card {
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.09);
+}
+.dark .glass-card {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+/* ─── Progress Bar ─────────────────────────────────────────────── */
+.progress-bar-track {
+  background: var(--muted);
+  border-radius: 99px;
+  height: 6px;
+  overflow: hidden;
+}
+.progress-bar-fill {
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--primary), var(--chart-2));
+  transition: width 0.8s cubic-bezier(0.4,0,0.2,1);
+}
+
+/* ─── Sidebar Active Link ──────────────────────────────────────── */
+.sidebar-link-active {
+  background: var(--sidebar-primary) !important;
+  color: var(--sidebar-primary-foreground) !important;
+  box-shadow: 0 0 14px rgba(114,0,171,0.3);
+}
+
+/* ─── Todo Priority Badges ─────────────────────────────────────── */
+.priority-high   { background: rgba(239,68,68,0.15);  color: #ef4444; }
+.priority-medium { background: rgba(245,158,11,0.15); color: #f59e0b; }
+.priority-low    { background: rgba(16,185,129,0.15); color: #10b981; }
+
+/* ─── Hover Card Lift ──────────────────────────────────────────── */
+.hover-lift {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.hover-lift:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 30px rgba(114,0,171,0.18);
 }

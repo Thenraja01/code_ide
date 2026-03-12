@@ -1,8 +1,6 @@
-'use client'
-
 import { useState } from 'react'
 import type { FormEvent, JSX } from 'react'
-
+import GoogleOauth from './Googleoauth'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -14,54 +12,50 @@ import {
   User,
   Lock,
   Loader2,
-  Code2,
-  Chrome
+  Code2
 } from 'lucide-react'
-import { Link } from 'react-router-dom'
-import { validatePassword, validateUsername } from './Validator'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../utils/Context/AuthContext'
 import { useTheme } from '@/components/Provider/themeprovider'
+import { auth } from './firebase'
+import { signInWithEmailAndPassword } from 'firebase/auth'
+
 const Login = (): JSX.Element => {
   const [loading, setLoading] = useState<boolean>(false)
-  const [error, setError] = useState<boolean>(false)
-  const { login, logout, } = useAuth()
+  const { login, logout } = useAuth()
   const { theme } = useTheme()
-  const handleSubmit = (event: FormEvent<HTMLFormElement>): void => {
+  const navigate = useNavigate()
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setLoading(true)
-    setError(false)
 
     const form = new FormData(event.currentTarget)
-    const username = String(form.get('username') || '')
+    const email = String(form.get('email') || '') // changed from username to email for firebase
     const password = String(form.get('password') || '')
 
-    const usernameError = validateUsername(username)
-    const passwordError = validatePassword(password)
-
-    if (usernameError) {
-      toast.warning(usernameError)
-      setError(true)
-      setLoading(false)
-      return
-    }
-    if (passwordError) {
-      toast.warning(passwordError)
-      setError(true)
+    // For simplicity I'll skip username specific validation here and just use email
+    if (!email || !password) {
+      toast.warning("Please enter both email and password")
       setLoading(false)
       return
     }
 
     try {
+      const userCredential = await signInWithEmailAndPassword(auth, email, password)
+      const user = userCredential.user
+
       login({
-        id: username,
-        name: username,
+        id: user.uid,
+        name: user.displayName || email.split('@')[0],
         password: password,
-        email: ''
+        email: email
       })
+
       toast.success('Logged in successfully')
-    } catch (err) {
-      toast.warning('Login failed')
-      setError(true)
+      navigate('/dashboard')
+    } catch (err: any) {
+      toast.error(err.message || 'Login failed')
       logout()
       console.log(err)
     } finally {
@@ -100,17 +94,18 @@ const Login = (): JSX.Element => {
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Username */}
+          {/* Email */}
           <div className="space-y-1 text-start">
             <label className="text-xs font-medium uppercase  text-muted-foreground">
-              Username
+              Email
             </label>
             <div className="relative">
               <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                name="username"
+                name="email"
+                type="email"
                 required
-                placeholder="Enter your username"
+                placeholder="Enter your email"
                 className="pl-10 focus-visible:ring-ring"
               />
             </div>
@@ -140,7 +135,7 @@ const Login = (): JSX.Element => {
             className="w-full flex items-center justify-center gap-2"
           >
             {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-            {loading ? 'login to…' : 'Login'}
+            {loading ? 'Logging in...' : 'Login'}
           </Button>
 
         </form>
@@ -167,10 +162,7 @@ const Login = (): JSX.Element => {
           </p>
 
           <div className="grid grid-cols-2 gap-3">
-            <Button variant="secondary" type="button" className="gap-2">
-              <Chrome className="h-4 w-4 text-orange-500" />
-              Google
-            </Button>
+            <GoogleOauth text="Google" />
 
             <Button variant="secondary" type="button" className="gap-2">
               <Github className="h-4 w-4" />
@@ -184,3 +176,4 @@ const Login = (): JSX.Element => {
 }
 
 export default Login
+

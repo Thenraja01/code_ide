@@ -1,8 +1,6 @@
-'use client'
-
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
@@ -16,7 +14,6 @@ import {
   Lock,
   Loader2,
   Code2,
-  Chrome,
   Eye,
   EyeOff,
 } from 'lucide-react'
@@ -25,14 +22,19 @@ import { useAuth } from '../utils/Context/AuthContext'
 import { useTheme } from '@/components/Provider/themeprovider'
 import { toast } from 'sonner'
 import { Toaster } from '@/components/ui/sonner'
+import { auth } from './firebase'
+import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth'
+import GoogleOauth from './Googleoauth'
+import { saveUser } from './data'
 
 const Signup = () => {
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const { login } = useAuth()
   const { theme } = useTheme()
+  const navigate = useNavigate()
 
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setLoading(true)
 
@@ -68,18 +70,32 @@ const Signup = () => {
       return
     }
 
-    // Simulate signup/login
     try {
-      login({
-        id: username, // Using username as ID for now
+      // Firebase Signup
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password)
+      const user = userCredential.user
+
+      // Update display name
+      await updateProfile(user, { displayName: username })
+
+      const userData = {
+        id: user.uid,
         name: username,
-        password: password,
+        password: password, // Note: Storing password in plain text is for demo purposes as requested
         email: email
-      })
+      }
+
+      // Save to data.js
+      saveUser(userData)
+
+      // Update Auth Context
+      login(userData)
+
       toast.success("Account created successfully!")
-    } catch (error) {
+      navigate('/dashboard')
+    } catch (error: any) {
       console.error(error)
-      toast.error("Failed to create account")
+      toast.error(error.message || "Failed to create account")
     } finally {
       setLoading(false)
     }
@@ -220,10 +236,7 @@ const Signup = () => {
           </p>
 
           <div className="grid grid-cols-2 gap-4">
-            <Button variant="secondary" className="h-11 gap-2">
-              <Chrome className="h-4 w-4 text-blue-500" />
-              Google
-            </Button>
+            <GoogleOauth text="Google" />
 
             <Button variant="secondary" className="h-11 gap-2">
               <Github className="h-4 w-4" />
@@ -248,3 +261,4 @@ const Signup = () => {
 }
 
 export default Signup
+

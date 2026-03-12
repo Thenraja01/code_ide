@@ -4,8 +4,8 @@ import {
     NavigationMenuList,
 } from "@/components/ui/navigation-menu";
 import { AlignHorizontalDistributeCenter, Dock, HomeIcon } from "lucide-react";
-import codespace_logo from "@/../public/icons/codespace_icon_logo.svg";
-import codespacelight from "@/../public/icons/light_code_space.svg";
+import codespace_logo from "@/../public/icons/bg_light.svg";
+import codespacelight from "@/../public/icons/bg_light_1.svg";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/components/Provider/themeprovider";
 import { ModeToggle } from "@/components/Provider/Theme/toggletheme"; 
@@ -42,7 +42,7 @@ export default function MarketingNavbar() {
         <>
             <div className="flex md:grid items-center py-8 px-2   justify-between md:justify-normal border-b-neutral-400">
                 <div className=" md:flex items-center justify-between space-x-3">
-                    <img src={logo} alt="codespace_ide" className="max-w-fit" />
+                    <img src={logo} alt="codespace_ide" className="w-12px" />
                     <NavigationMenu>
                         <NavigationMenuList>
                             <NavigationMenuItem className="md:flex hidden items-center gap-12 w-auto">

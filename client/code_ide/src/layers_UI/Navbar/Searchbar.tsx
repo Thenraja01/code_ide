@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
 
 export default function SearchBar() {
   const [query, setQuery] = useState("");
@@ -7,7 +8,7 @@ export default function SearchBar() {
   return (
     <div className="relative w-80">
       <Search className="absolute left-3 top-2.5 text-muted-foreground" size={16} />
-      <input
+      <Input
         type="text"
         placeholder="Search projects..."
         value={query}

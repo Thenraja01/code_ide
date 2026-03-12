@@ -1,6 +1,7 @@
 import { useLocation } from "react-router-dom";
 import { ModeToggle } from "../../../components/Provider/Theme/toggletheme.tsx";
 import SearchBar from "../Searchbar.tsx";
+import UserMenu from "../UserMenu.tsx";
 
 export function AppNavbar() {
   const location = useLocation();
@@ -15,7 +16,7 @@ export function AppNavbar() {
 
       <div className="flex items-center gap-4">
         <ModeToggle />
-      
+      <UserMenu />
       </div>
     </div>
   );
