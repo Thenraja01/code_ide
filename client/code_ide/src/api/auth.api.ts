@@ -48,3 +48,7 @@ export const getUsers = async (): Promise<User[]> => {
   const res = await api.get("/users");
   return res.data;
 };
+export const getMe = async (): Promise<User> => {
+  const res = await api.get("/me");
+  return res.data;
+};

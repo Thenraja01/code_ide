@@ -40,9 +40,9 @@ export default function MarketingNavbar() {
 
     return (
         <>
-            <div className="flex md:grid items-center py-8 px-2   justify-between md:justify-normal border-b-neutral-400">
+            <div className="flex md:grid items-center  px-2   justify-between md:justify-normal border-b-neutral-400">
                 <div className=" md:flex items-center justify-between space-x-3">
-                    <img src={logo} alt="codespace_ide" className="w-12px" />
+                    <img src={logo} alt="codespace_ide" className="h-12 m-5" />
                     <NavigationMenu>
                         <NavigationMenuList>
                             <NavigationMenuItem className="md:flex hidden items-center gap-12 w-auto">

@@ -29,11 +29,11 @@ export default function GoogleOauth({ text }: GoogleOauthProps) {
         id: user.uid,
         name: user.displayName || 'Google User',
         email: user.email || '',
-        password: '' // No password for OAuth
+        password: ''
       });
 
       toast.success("Welcome " + (user.displayName || user.email));
-      navigate('/dashboard'); // Redirect after login
+      navigate('/dashboard');
     } catch (err: any) {
       console.error("Firebase Auth Error:", err);
 

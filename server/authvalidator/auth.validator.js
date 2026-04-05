@@ -2,7 +2,7 @@ const Joi = require('joi');
 const registerSchema = Joi.object({
   email: Joi.string().email().required(),
 
-  password: Joi.string().min(6).uppercase(1).pattern(/[A-Z]/).pattern(/(?:.*\d){2,}/).required(),
+  password: Joi.string().min(6).pattern(/[A-Z]/).pattern(/(?:.*\d){2,}/).required(),
 
   confirmPassword: Joi.string()
     .valid(Joi.ref('password'))

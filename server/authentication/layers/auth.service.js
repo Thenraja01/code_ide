@@ -3,7 +3,11 @@ const { hashPassword, comparePassword } = require('../../src/utils/hash');
 const generateToken = require('../../src/utils/generateToken');
 const admin = require('../../src/firebase/firebase.config');
 
-exports.register = async (email, password) => {
+exports.register = async (email, password, confirmPassword) => {
+  if (password !== confirmPassword) {
+    throw new Error("Passwords do not match");
+  }
+
   const hashed = await hashPassword(password);
 
   const user = await prisma.user.create({

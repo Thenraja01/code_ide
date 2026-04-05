@@ -22,7 +22,7 @@ model User {
 
   projects  Project[]
   aiPrompts AIPrompt[]
-
+   provider  String   @default("local") 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -48,16 +48,24 @@ model Project {
 model File {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   name      String
-  content   String
-  language  String
+  content   String?
+  type      FileType
 
   projectId String   @db.ObjectId
-  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project   Project  @relation(fields: [projectId], references: [id])
+
+  parentId  String?  @db.ObjectId
+  parent    File?    @relation("FolderStructure", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children  File[]   @relation("FolderStructure")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
+enum FileType {
+  FILE
+  FOLDER
+}
 
 model Execution {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId

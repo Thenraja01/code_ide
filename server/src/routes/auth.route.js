@@ -1,8 +1,13 @@
 const router = require('express').Router();
 const authController = require('../../authentication/layers/auth.controller');
+const validate = require('../../middlewares/auth.validate');
+const { registerSchema, loginSchema, googleSchema } = require('../../authvalidator/auth.validator');
 
-router.post('/register', authController.register);
-router.post('/login', authController.login);
-router.post('/google', authController.google);
+const authMiddleware = require('../../middlewares/auth.middleware');
+
+router.post('/register', validate(registerSchema), authController.register);
+router.post('/login', validate(loginSchema), authController.login);
+router.post('/google', validate(googleSchema), authController.google);
+router.get('/me', authMiddleware, authController.getMe);
 
 module.exports = router;
