@@ -1,0 +1,57 @@
+version: "3.8"
+
+services:
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile.prod
+    container_name: codeide-backend-prod
+    restart: always
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./server/workspaces:/app/workspaces
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=mongodb://mongo:27017/codeide
+      - JWT_SECRET=${JWT_SECRET}
+      - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID}
+      - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET}
+      - AI_SERVICE_URL=http://ai-service:8000
+    depends_on:
+      - mongo
+
+  frontend:
+    build:
+      context: ./client/code_ide
+      dockerfile: Dockerfile.prod
+    container_name: codeide-frontend-prod
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+  ai-service:
+    build:
+      context: ./ai_services/ai_services
+      dockerfile: Dockerfile
+    container_name: codeide-ai-prod
+    restart: always
+    ports:
+      - "8000:8000"
+
+  mongo:
+    image: mongo:latest
+    container_name: codeide-mongo-prod
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data-prod:/data/db
+    environment:
+      - MONGO_INITDB_DATABASE=codeide
+
+volumes:
+  mongo-data-prod:
