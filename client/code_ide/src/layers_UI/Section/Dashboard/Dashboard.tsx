@@ -67,6 +67,7 @@ export default function Dashboard() {
   return (
     <div className="flex-1 overflow-y-auto px-6 py-8 md:px-10 space-y-8 min-h-screen">
 
+
       {/* Page Header */}
       <div className="fade-in-up flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
@@ -81,6 +82,7 @@ export default function Dashboard() {
           </p>
         </div>
       </div>
+      <ProjectTable view={view} />
 
       {/* Quick Actions */}
       <section className="fade-in-up delay-200">
@@ -108,7 +110,6 @@ export default function Dashboard() {
       </div>
 
       {/* Project Table */}
-      <ProjectTable view={view} />
     </div>
   );
 }
