@@ -7,7 +7,7 @@ const {
   updateFile,
   deleteFile,
   moveFile
-} = require('../../Controller/file.controller')
+} = require('../controllers/file.controller')
 
 router.post('/', createFile)
 router.get('/', getFiles)
@@ -16,3 +16,4 @@ router.delete('/:id', deleteFile)
 router.put('/move/:id', moveFile)
 
 module.exports = router
+

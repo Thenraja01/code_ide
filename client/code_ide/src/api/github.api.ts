@@ -1,15 +1,17 @@
 import api from "./axios";
 
 export interface GithubRepoData {
+  token: string;
   name: string;
   description?: string;
   private?: boolean;
 }
 
 export interface GithubPushData {
-  repoName: string;
-  commitMessage: string;
-  files: { path: string; content: string }[];
+  token: string;
+  owner: string;
+  repo: string;
+  projectId: string;
 }
 
 export const createRepository = async (data: GithubRepoData) => {

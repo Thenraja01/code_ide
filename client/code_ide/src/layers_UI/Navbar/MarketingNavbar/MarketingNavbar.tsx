@@ -34,8 +34,8 @@ export const pages = [
 ];
 
 export default function MarketingNavbar() {
-    const handleNavigate = useHandleNavigate();
     const { theme } = useTheme()
+    const handleNavigate=useHandleNavigate()
     const logo = theme === "light" ? codespace_logo : codespacelight;
 
     return (
@@ -50,7 +50,7 @@ export default function MarketingNavbar() {
                                     <div
                                         key={component.title}
                                         className="flex items-center gap-1 font-medium text-pretty cursor-pointer hover:text-chart-1"
-                                        onClick={() => handleNavigate(component.href)}
+                                        onClick={() =>handleNavigate(component.href)}
                                     >
                                         {component.icons}
                                         <span>{component.title}</span>

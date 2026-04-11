@@ -23,8 +23,8 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { icon: Home, label: "Home", path: "/dashboard/home" },
-  { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
-  { icon: Code2, label: "Editor", path: "/dashboard/editor" },
+  { icon: LayoutDashboard, label: "Main Dashboard", path: "/dashboard" },
+  { icon: Code2, label: "IDE Workspace", path: "/dashboard" },
   { icon: Star, label: "Starred", path: "/dashboard/starred" },
   { icon: FolderOpen, label: "Projects", path: "/dashboard/projects" },
   { icon: Clock, label: "Recent", path: "/dashboard/recent" },

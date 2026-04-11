@@ -1,9 +1,9 @@
 import { BrowserRouter } from 'react-router-dom'
 import './App.css'
-import { ThemeProvider } from './components/Provider/themeprovider.tsx'
-import BaseRoutes from "./Routes/BaseRoutes.tsx"
-import { useAuth } from './layers_UI/utils/Context/AuthContext.tsx'
-import { useMeQuery } from './hooks/useAuth.hooks.ts'
+import { ThemeProvider } from '@/components/Provider/themeprovider'
+import BaseRoutes from "@/Routes/BaseRoutes"
+import { useAuth } from '@/layers_UI/utils/Context/AuthContext'
+import { useMeQuery } from '@/hooks/useAuth.hooks'
 import { useEffect } from 'react'
 
 

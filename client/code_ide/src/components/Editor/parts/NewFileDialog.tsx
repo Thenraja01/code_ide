@@ -1,109 +1,74 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, FileText } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { FilePlus, FolderPlus, FileText } from 'lucide-react'
 import { Input } from '@/components/ui/input'
-import { cn } from '@/lib/utils'
 
 interface NewFileDialogProps {
     isOpen: boolean
     onClose: () => void
-    onCreate: (name: string, language: string) => void
+    onCreate: (name: string, type: "FILE" | "FOLDER") => void
+    type: "FILE" | "FOLDER"
 }
 
-const LANGUAGES = [
-    { id: 'javascript', name: 'JavaScript', ext: '.js' },
-    { id: 'typescript', name: 'TypeScript', ext: '.ts' },
-    { id: 'python', name: 'Python', ext: '.py' },
-    { id: 'html', name: 'HTML', ext: '.html' },
-    { id: 'css', name: 'CSS', ext: '.css' },
-    { id: 'json', name: 'JSON', ext: '.json' },
-]
-
-export default function NewFileDialog({ isOpen, onClose, onCreate }: NewFileDialogProps) {
+export default function NewFileDialog({ isOpen, onClose, onCreate, type }: NewFileDialogProps) {
     const [name, setName] = useState('')
-    const [selectedLang, setSelectedLang] = useState(LANGUAGES[0])
+    const inputRef = useRef<HTMLInputElement>(null)
 
     useEffect(() => {
         if (isOpen) {
             setName('')
-            setSelectedLang(LANGUAGES[0])
+            // Use a slight delay to ensure the input is mounted before focusing
+            const timer = setTimeout(() => inputRef.current?.focus(), 50)
+            return () => clearTimeout(timer)
         }
     }, [isOpen])
 
     const handleCreate = () => {
         if (!name.trim()) return
-        const fullName = name.includes('.') ? name : `${name}${selectedLang.ext}`
-        onCreate(fullName, selectedLang.id)
+        onCreate(name, type)
         onClose()
     }
+
+    const placeholder = type === 'FOLDER' ? "Folder Name" : "File Name (e.g. index.html)"
+    const Icon = type === 'FOLDER' ? FolderPlus : (name.includes('.') ? FileText : FilePlus)
 
     return (
         <AnimatePresence>
             {isOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                <div className="fixed inset-0 z-[100] flex items-start justify-center pt-2">
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         onClick={onClose}
-                        className="absolute inset-0 bg-background/80 backdrop-blur-sm"
+                        className="absolute inset-0 bg-black/40"
                     />
 
                     <motion.div
-                        initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                        className="relative w-full max-w-md bg-card border border-border rounded-xl shadow-2xl overflow-hidden"
+                        initial={{ opacity: 0, y: -20, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -20, scale: 0.98 }}
+                        className="relative w-full max-w-[600px] bg-[#252526] shadow-2xl overflow-hidden border border-[#454545] rounded-sm"
                     >
-                        <div className="flex items-center justify-between p-4 border-b border-border">
-                            <div className="flex items-center gap-2 font-semibold">
-                                <FileText size={18} className="text-primary" />
-                                <span>Create New File</span>
-                            </div>
-                            <button onClick={onClose} className="p-1 hover:bg-accent rounded-md transition-colors">
-                                <X size={18} />
-                            </button>
+                        <div className="flex items-center px-3 py-1 bg-[#37373d]/50 text-[#cccccc] text-[10px] uppercase tracking-wider font-bold">
+                            <span>New {type.toLowerCase()}</span>
                         </div>
-
-                        <div className="p-6 space-y-6">
-                            <div className="space-y-2">
-                                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">File Name</label>
-                                <Input
-                                    autoFocus
-                                    placeholder="index"
-                                    value={name}
-                                    onChange={(e) => setName(e.target.value)}
-                                    onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
-                                    className="bg-secondary/30 border-none focus-visible:ring-1 focus-visible:ring-primary"
-                                />
-                            </div>
-
-                            <div className="space-y-2">
-                                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Language</label>
-                                <div className="grid grid-cols-2 gap-2">
-                                    {LANGUAGES.map((lang) => (
-                                        <div
-                                            key={lang.id}
-                                            onClick={() => setSelectedLang(lang)}
-                                            className={cn(
-                                                "flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer border transition-all",
-                                                selectedLang.id === lang.id
-                                                    ? "bg-primary/10 border-primary text-primary"
-                                                    : "bg-secondary/20 border-transparent hover:border-border text-muted-foreground"
-                                            )}
-                                        >
-                                            <span className="text-sm font-medium">{lang.name}</span>
-                                            <span className="text-[10px] opacity-60 font-mono">{lang.ext}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
+                        <div className="flex items-center gap-2 p-2 px-3">
+                            <Icon size={16} className={type === 'FOLDER' ? "text-blue-400" : "text-purple-400"} />
+                            <Input
+                                ref={inputRef}
+                                placeholder={placeholder}
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') handleCreate()
+                                    if (e.key === 'Escape') onClose()
+                                }}
+                                className="bg-[#3c3c3c] border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-white placeholder:text-[#858585] h-8 text-[13px] rounded-sm ring-1 ring-transparent focus:ring-purple-500/50"
+                            />
                         </div>
-
-                        <div className="p-4 bg-secondary/10 flex justify-end gap-3 mt-4">
-                            <Button variant="ghost" onClick={onClose}>Cancel</Button>
-                            <Button onClick={handleCreate} disabled={!name.trim()}>Create File</Button>
+                        <div className="px-3 pb-2 text-[10px] text-[#858585] flex justify-between">
+                            <span>Press Enter to confirm or Esc to cancel</span>
                         </div>
                     </motion.div>
                 </div>
