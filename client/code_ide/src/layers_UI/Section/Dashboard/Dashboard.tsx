@@ -82,7 +82,6 @@ export default function Dashboard() {
           </p>
         </div>
       </div>
-      <ProjectTable view={view} />
 
       {/* Quick Actions */}
       <section className="fade-in-up delay-200">
@@ -100,6 +99,7 @@ export default function Dashboard() {
         ))}
       </div>
       {/* Chart + Activity — side by side on large screens */}
+        <ProjectTable view={view} />
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
           <Chart />
