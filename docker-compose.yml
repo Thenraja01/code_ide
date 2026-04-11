@@ -31,6 +31,18 @@ services:
     stdin_open: true
     tty: true
 
+  ai-service:
+    build:
+      context: ./ai_services/ai_services
+      dockerfile: Dockerfile
+    container_name: codeide-ai-dev
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./ai_services/ai_services:/app
+    environment:
+      - ENV=development
+
   mongo:
     image: mongo
     container_name: codeide-mongo
