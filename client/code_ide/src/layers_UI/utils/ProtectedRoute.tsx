@@ -1,8 +1,8 @@
+import { useMeQuery } from '@/hooks/useAuth.hooks';
 import { Navigate, Outlet } from 'react-router-dom';
-import { useAuth } from './Context/AuthContext';
 
 const ProtectedRoute = () => {
-    const { user } = useAuth();
+  const { data: user } = useMeQuery();
 
     if (!user) {
         // Redirect to login if not authenticated

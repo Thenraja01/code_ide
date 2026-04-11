@@ -5,36 +5,41 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { LogOut, Settings, User } from "lucide-react";
-import { useAuth } from "../utils/Context/AuthContext";
+import { User } from "lucide-react";
+import { useMeQuery } from "@/hooks/useAuth.hooks";
+import { useHandleNavigate } from "../utils/CustomFunction/HandleNavigate";
+import { useQueryClient } from "@tanstack/react-query";
+import { LogOut } from "lucide-react";
 
 export default function UserMenu() {
-  const { user, logout } = useAuth();
+  const handleNavigate = useHandleNavigate();
+  const { data: user } = useMeQuery();
+  const queryClient = useQueryClient();
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    queryClient.clear();
+    handleNavigate("login");
+  };
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger>
         <Avatar className="cursor-pointer">
           <AvatarFallback>
-            {user?.name?.charAt(0).toUpperCase()}
+            {user?.email?.charAt(0).toUpperCase()}
           </AvatarFallback>
         </Avatar>
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="end">
-        <DropdownMenuItem>
+        <DropdownMenuItem onClick={() => handleNavigate("dashboard/profile")}>
           <User size={16} className="mr-2" />
-          Profile
+          <div>Profile</div>
         </DropdownMenuItem>
-
-        <DropdownMenuItem>
-          <Settings size={16} className="mr-2" />
-          Settings
-        </DropdownMenuItem>
-
-        <DropdownMenuItem onClick={logout}>
+        <DropdownMenuItem onClick={handleLogout} className="text-red-500">
           <LogOut size={16} className="mr-2" />
-          Logout
+          <div>Logout</div>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

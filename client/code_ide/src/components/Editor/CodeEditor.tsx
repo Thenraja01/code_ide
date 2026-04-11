@@ -1,12 +1,22 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import ActivityBar from './parts/ActivityBar'
 import Sidebar from './parts/Sidebar'
-import EditorView from './parts/EditorView'
-import Terminal from './parts/Terminal'
+import EditorTabs from './parts/EditorTabs'
+import MonacoEditor from './parts/MonacoEditor'
 import StatusBar from './parts/StatusBar'
+import TopBar from './parts/TopBar'
+import AIPanel from './parts/AIPanel'
 import NewFileDialog from './parts/NewFileDialog'
+import TerminalPanel from '../Terminal/TerminalPanel'
+import PreviewPanel from '../Preview/PreviewPanel'
+import { AnimatePresence, motion } from 'framer-motion'
+import { useParams } from 'react-router-dom'
+import { useFilesQuery, useUpdateFileMutation, useCreateFileMutation } from '@/hooks/useFile.hooks'
+import { useInitializeProjectMutation } from '@/hooks/useProject.hooks'
+import { useCommandMutation, useStartPreviewMutation, useStopPreviewMutation } from '@/hooks/useExecution.hooks'
+import { toast } from 'sonner'
 
 type FileType = {
   id: string
@@ -16,135 +26,217 @@ type FileType = {
 }
 
 export default function CodeEditor() {
-  const [files, setFiles] = useState<FileType[]>([
-    {
-      id: '1',
-      name: 'index.js',
-      language: 'javascript',
-      content: "// Welcome to CodeSpace IDE\nconsole.log('Build something amazing!');\n\nfunction greet(name) {\n  return `Hello, ${name}!`;\n}\n\nconsole.log(greet('Developer'));",
-    },
-  ])
+  const { projectId } = useParams<{ projectId: string }>()
+  const { data: projectFiles = [] } = useFilesQuery(projectId || '')
+  const { mutate: initializeProject } = useInitializeProjectMutation()
+  
+  // Execution Hooks
+  const { mutate: executeCommand } = useCommandMutation()
+  const { mutate: startPreview, isPending: isStartingPreview } = useStartPreviewMutation()
+  const { mutate: stopPreview } = useStopPreviewMutation()
+  const { mutate: createFile } = useCreateFileMutation()
+  const { mutate: updateFile } = useUpdateFileMutation(projectId)
 
-  const [activeFileId, setActiveFileId] = useState('1')
+  const [files, setFiles] = useState<FileType[]>([])
+  const [activeFileId, setActiveFileId] = useState('')
   const [activeTab, setActiveTab] = useState('explorer')
-  const [showTerminal, setShowTerminal] = useState(false)
-  const [previewOutput, setPreviewOutput] = useState('')
+  const [showTerminal, setShowTerminal] = useState(true)
+  const [showPreview, setShowPreview] = useState(false)
+  const [isAiOpen, setIsAiOpen] = useState(false)
+  const [previewUrl, setPreviewUrl] = useState('')
   const [isNewFileDialogOpen, setIsNewFileDialogOpen] = useState(false)
+  const [creationType, setCreationType] = useState<"FILE" | "FOLDER">("FILE")
+
+  // Auto-initialize project on load
+  useEffect(() => {
+    if (projectId) {
+      initializeProject(projectId);
+    }
+  }, [projectId, initializeProject]);
+
+  useEffect(() => {
+    if (projectFiles.length > 0) {
+      const mappedFiles: (FileType & { type: string })[] = projectFiles
+        .map((f: any) => ({
+          id: f.id,
+          name: f.name,
+          language: f.name.endsWith('.jsx') || f.name.endsWith('.tsx') ? 'javascript' : (f.name.endsWith('.css') ? 'css' : 'javascript'),
+          content: f.content || '',
+          type: f.type
+        }))
+      
+      // Merge local changed files to prevent reset during debounced typing updates
+      setFiles(prev => {
+        if (prev.length === 0) return mappedFiles;
+        return mappedFiles.map(mf => {
+          const existing = prev.find(pf => pf.id === mf.id);
+          // Prefer local content if it exists to avoid cursor jumping
+          return existing ? { ...mf, content: existing.content } : mf;
+        });
+      });
+      if (!activeFileId && mappedFiles.length > 0) {
+        setActiveFileId(mappedFiles[0].id)
+      }
+    }
+  }, [projectFiles])
 
   const activeFile = files.find((f) => f.id === activeFileId)
 
-  const handleCreateNewFile = (name: string, language: string) => {
-    const newFile: FileType = {
-      id: Date.now().toString(),
-      name,
-      language,
-      content: '',
-    }
-    setFiles([...files, newFile])
-    setActiveFileId(newFile.id)
-    if (activeTab === 'none') setActiveTab('explorer')
+  useEffect(() => {
+    if (!activeFile) return;
+    const timer = setTimeout(() => {
+      const original = projectFiles.find((f: any) => f.id === activeFile.id);
+      if (original && original.content !== activeFile.content) {
+        updateFile({ id: activeFile.id, content: activeFile.content });
+      }
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [activeFile?.content, activeFile?.id, projectFiles, updateFile]);
+
+  const handleCommand = (command: string) => {
+    if (!projectId) return;
+    executeCommand({ projectId, command }, {
+        onSuccess: (data) => toast.success(data.message),
+        onError: (err: any) => toast.error(err.response?.data?.message || "Failed to execute command")
+    });
   }
 
-  const handleUpdateFileContent = (value: string | undefined) => {
-    setFiles((prev) =>
-      prev.map((file) =>
-        file.id === activeFileId ? { ...file, content: value || '' } : file
-      )
-    )
-  }
-
-  const handleCloseFile = (id: string) => {
-    const filtered = files.filter((file) => file.id !== id)
-    setFiles(filtered)
-    if (id === activeFileId && filtered.length > 0) {
-      setActiveFileId(filtered[0].id)
-    } else if (filtered.length === 0) {
-      setActiveFileId('')
-    }
-  }
-
-  const handleRunCode = () => {
-    setShowTerminal(true)
-    setPreviewOutput('Executing code...\n')
-
-    // Virtual console capture
-    const logs: string[] = []
-    const customConsole = {
-      log: (...args: any[]) => logs.push(args.map(a => typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a)).join(' ')),
-      error: (...args: any[]) => logs.push('[ERROR] ' + args.join(' ')),
-      warn: (...args: any[]) => logs.push('[WARN] ' + args.join(' '))
-    }
-
-    try {
-      // Simple evaluation with captured console
-      const executeCode = new Function('console', activeFile?.content || '')
-      const result = executeCode(customConsole)
-
-      const finalOutput = logs.length > 0 ? logs.join('\n') : (result !== undefined ? String(result) : 'Code executed with no output.')
-      setPreviewOutput(finalOutput)
-    } catch (err: any) {
-      setPreviewOutput(`Execution Error:\n${err.message}`)
-    }
-  }
-
-  const handleToggleTab = (tab: string) => {
-    if (activeTab === tab) {
-      setActiveTab('none')
+  const handleTogglePreview = () => {
+    if (!projectId) return;
+    if (showPreview) {
+        stopPreview(projectId);
+        setShowPreview(false);
+        setPreviewUrl('');
     } else {
-      setActiveTab(tab)
+        // Find framework from files (package.json check would be better)
+        const framework = projectFiles.find((f: any) => f.name === 'package.json') ? 'react' : 'vanilla';
+        startPreview({ projectId, framework }, {
+            onSuccess: (data) => {
+                setPreviewUrl(data.url);
+                setShowPreview(true);
+            },
+            onError: (err: any) => toast.error(err.response?.data?.message || "Failed to start preview")
+        });
     }
   }
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-background text-foreground overflow-hidden font-sans select-none">
-      <div className="flex flex-1 overflow-hidden">
-        {/* Activity Bar - Global Navigation */}
+    <div className="h-screen w-screen flex flex-col bg-[#0b0b0f] text-[#f4f4f5] overflow-hidden font-sans select-none">
+      <TopBar 
+        onPlay={handleTogglePreview} 
+        isPreviewRunning={showPreview} 
+        onToggleTerminal={() => setShowTerminal(!showTerminal)} 
+        onNewFile={(type) => {
+            setCreationType(type);
+            setIsNewFileDialogOpen(true);
+        }}
+      />
+
+
+      <div className="flex flex-1 overflow-hidden relative">
         <ActivityBar
           activeTab={activeTab}
-          setActiveTab={handleToggleTab}
-          onRun={handleRunCode}
+          setActiveTab={setActiveTab}
+          isAiOpen={isAiOpen}
+          toggleAi={() => setIsAiOpen(!isAiOpen)}
         />
 
-        {/* Sidebar - Contextual Views */}
-        <Sidebar
-          activeTab={activeTab}
-          files={files}
-          activeFileId={activeFileId}
-          setActiveFileId={setActiveFileId}
-          onNewFile={() => setIsNewFileDialogOpen(true)}
-          onCloseSidebar={() => setActiveTab('none')}
-        />
+        <AnimatePresence>
+          {activeTab !== 'none' && (
+            <Sidebar
+              activeTab={activeTab}
+              files={files}
+              activeFileId={activeFileId}
+              setActiveFileId={setActiveFileId}
+              onNewFile={(type) => {
+                  setCreationType(type);
+                  setIsNewFileDialogOpen(true);
+              }}
+              onCloseSidebar={() => setActiveTab('none')}
+            />
+          )}
+        </AnimatePresence>
 
-        <div className="flex flex-col flex-1 min-w-0">
-          {/* Main Editor Area */}
-          <EditorView
-            files={files}
-            activeFileId={activeFileId}
-            setActiveFileId={setActiveFileId}
-            onCloseFile={handleCloseFile}
-            onContentChange={handleUpdateFileContent}
-          />
+        <div className="flex flex-1 min-w-0 bg-[#0b0b0f]">
+          <div className="flex flex-col flex-1 border-r border-border/20">
+            <EditorTabs
+              files={files}
+              activeFileId={activeFileId}
+              setActiveFileId={setActiveFileId}
+              onCloseFile={(id) => setFiles(f => f.filter(x => x.id !== id))}
+            />
 
-          {/* Terminal / Output */}
-          <Terminal
-            output={previewOutput}
-            isVisible={showTerminal}
-            onClose={() => setShowTerminal(false)}
-            onClear={() => setPreviewOutput('')}
-          />
+            <div className="flex-1 relative overflow-hidden">
+              {activeFile ? (
+                <MonacoEditor
+                  language={activeFile.language}
+                  content={activeFile.content}
+                  onContentChange={(val) => setFiles(prev => prev.map(f => f.id === activeFileId ? {...f, content: val || ''} : f))}
+                />
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center text-muted-foreground gap-4 opacity-50">
+                  <span className="text-4xl font-black tracking-tighter">CODE SPACE</span>
+                  <span className="text-xs">Open a file from the explorer to begin</span>
+                </div>
+              )}
+            </div>
+
+            <AnimatePresence>
+              {showTerminal && (
+                <motion.div 
+                    initial={{ height: 0 }}
+                    animate={{ height: 260 }}
+                    exit={{ height: 0 }}
+                    className="overflow-hidden border-t border-border/20"
+                >
+                  <TerminalPanel projectId={projectId || ''} onCommand={handleCommand} />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* Live Preview Pane */}
+          {showPreview && (
+            <div className="w-1/3 min-w-[350px] p-2 bg-background/50 backdrop-blur-sm">
+                <PreviewPanel 
+                    url={previewUrl} 
+                    isLoading={isStartingPreview}
+                    onRefresh={() => {}} 
+                    onStop={handleTogglePreview}
+                />
+            </div>
+          )}
         </div>
+
+        <AIPanel isOpen={isAiOpen} onClose={() => setIsAiOpen(false)} currentCode={activeFile?.content || ''} />
       </div>
 
-      {/* Status Bar */}
       <StatusBar
         language={activeFile?.language || 'plain text'}
         lineCount={activeFile?.content.split('\n').length || 0}
+        onToggleTerminal={() => setShowTerminal(!showTerminal)}
       />
 
       <NewFileDialog
         isOpen={isNewFileDialogOpen}
         onClose={() => setIsNewFileDialogOpen(false)}
-        onCreate={handleCreateNewFile}
+        type={creationType}
+        onCreate={(name, type) => {
+            if (!projectId) return;
+            createFile({
+                projectId,
+                name,
+                type,
+                content: '',
+                parentId: null
+            }, {
+                onSuccess: (newFile) => {
+                    if (newFile.type === 'FILE' && newFile.id) {
+                        setActiveFileId(newFile.id);
+                    }
+                }
+            });
+        }}
       />
     </div>
   )

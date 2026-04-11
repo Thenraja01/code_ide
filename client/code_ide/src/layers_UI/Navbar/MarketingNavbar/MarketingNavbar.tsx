@@ -34,15 +34,15 @@ export const pages = [
 ];
 
 export default function MarketingNavbar() {
-    const handleNavigate = useHandleNavigate();
     const { theme } = useTheme()
+    const handleNavigate=useHandleNavigate()
     const logo = theme === "light" ? codespace_logo : codespacelight;
 
     return (
         <>
-            <div className="flex md:grid items-center py-8 px-2   justify-between md:justify-normal border-b-neutral-400">
+            <div className="flex md:grid items-center  px-2   justify-between md:justify-normal border-b-neutral-400">
                 <div className=" md:flex items-center justify-between space-x-3">
-                    <img src={logo} alt="codespace_ide" className="w-12px" />
+                    <img src={logo} alt="codespace_ide" className="h-12 m-5" />
                     <NavigationMenu>
                         <NavigationMenuList>
                             <NavigationMenuItem className="md:flex hidden items-center gap-12 w-auto">
@@ -50,7 +50,7 @@ export default function MarketingNavbar() {
                                     <div
                                         key={component.title}
                                         className="flex items-center gap-1 font-medium text-pretty cursor-pointer hover:text-chart-1"
-                                        onClick={() => handleNavigate(component.href)}
+                                        onClick={() =>handleNavigate(component.href)}
                                     >
                                         {component.icons}
                                         <span>{component.title}</span>

@@ -1,0 +1,117 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  name      String?
+  email     String   @unique
+  password  String?
+  avatar    String?
+
+  projects  Project[]
+  aiPrompts AIPrompt[]
+   provider  String   @default("local") 
+   otpCode   String?
+   otpExpiresAt DateTime?
+   isEmailVerified Boolean @default(false)
+   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Project {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  description String?
+  language    String
+  isPublic    Boolean  @default(false)
+
+  userId      String   @db.ObjectId
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  files       File[]
+  executions  Execution[]
+  versions    Version[]
+  aiPrompts   AIPrompt[] 
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+model File {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  content   String?
+  type      FileType
+
+  projectId String   @db.ObjectId
+  project   Project  @relation(fields: [projectId], references: [id])
+
+  parentId  String?  @db.ObjectId
+  parent    File?    @relation("FolderStructure", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children  File[]   @relation("FolderStructure")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum FileType {
+  FILE
+  FOLDER
+}
+
+model Execution {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  code      String
+  output    String?
+  error     String?
+  status    ExecutionStatus @default(PENDING)
+
+  projectId String   @db.ObjectId
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+}
+
+enum ExecutionStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
+model Version {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  message   String?
+  snapshot  Json
+
+  projectId String   @db.ObjectId
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+}
+model AIPrompt {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  prompt     String
+  response   String?
+  model      String
+  tokensUsed Int?
+
+  userId     String   @db.ObjectId
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  projectId  String?  @db.ObjectId
+  project    Project? @relation(fields: [projectId], references: [id])
+
+  createdAt  DateTime @default(now())
+}

@@ -1,12 +1,13 @@
 import type { LucideIcon } from 'lucide-react'
-import { Files, Search, Blocks, Settings, Play } from 'lucide-react'
+import { Files, Search, GitBranch, Blocks, Settings, MessageSquareShare } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 
 interface ActivityBarProps {
     activeTab: string
     setActiveTab: (tab: string) => void
-    onRun: () => void
+    isAiOpen: boolean
+    toggleAi: () => void
 }
 
 interface NavItemProps {
@@ -15,58 +16,71 @@ interface NavItemProps {
     active: boolean
     onClick: () => void
     bottom?: boolean
+    indicator?: boolean
 }
 
-const NavItem = ({ icon: Icon, active, onClick, bottom }: NavItemProps) => (
+const NavItem = ({ icon: Icon, active, onClick, bottom, indicator }: NavItemProps) => (
     <button
         onClick={onClick}
         className={cn(
-            "w-full h-12 flex items-center justify-center relative transition-colors group",
-            active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
+            "w-full h-12 flex items-center justify-center relative transition-all group",
+            active ? "text-[#ffffff]" : "text-[#858585] hover:text-[#ffffff]",
             bottom && "mt-auto"
         )}
     >
-        {active && (
+        {active && indicator && (
             <motion.div
                 layoutId="activeIndicator"
-                className="absolute left-0 w-0.5 h-full bg-primary"
+                className="absolute left-0 w-0.5 h-full bg-[#ffffff]"
+                transition={{ type: 'spring', stiffness: 500, damping: 30 }}
             />
         )}
-        <Icon size={24} strokeWidth={active ? 2 : 1.5} />
+        <Icon size={24} strokeWidth={active ? 1.5 : 1.2} />
     </button>
 )
 
-export default function ActivityBar({ activeTab, setActiveTab, onRun }: ActivityBarProps) {
+export default function ActivityBar({ activeTab, setActiveTab, isAiOpen, toggleAi }: ActivityBarProps) {
     return (
-        <div className="w-[50px] flex flex-col bg-card border-r border-border h-full py-2">
+        <div className="w-[48px] flex flex-col bg-[#333333] border-r border-[#1e1e1e] h-full py-2 z-20">
             <NavItem
                 icon={Files}
                 id="explorer"
                 active={activeTab === 'explorer'}
                 onClick={() => setActiveTab('explorer')}
+                indicator
             />
             <NavItem
                 icon={Search}
                 id="search"
                 active={activeTab === 'search'}
                 onClick={() => setActiveTab('search')}
+                indicator
+            />
+            <NavItem
+                icon={GitBranch}
+                id="git"
+                active={activeTab === 'git'}
+                onClick={() => setActiveTab('git')}
+                indicator
             />
             <NavItem
                 icon={Blocks}
                 id="extensions"
                 active={activeTab === 'extensions'}
                 onClick={() => setActiveTab('extensions')}
+                indicator
             />
 
-            <div className="h-px bg-border mx-2 my-2 opacity-50" />
+            <div className="h-px bg-[#444] mx-3 my-2 opacity-30" />
 
-            <button
-                onClick={onRun}
-                className="w-full h-12 flex items-center justify-center text-primary hover:text-primary/80 transition-colors"
-                title="Run Code"
-            >
-                <Play size={24} fill="currentColor" />
-            </button>
+            {/* AI Assistant Toggle Button */}
+            <NavItem
+                icon={MessageSquareShare}
+                id="ai"
+                active={isAiOpen}
+                onClick={toggleAi}
+                indicator={false}
+            />
 
             <NavItem
                 icon={Settings}
@@ -74,6 +88,7 @@ export default function ActivityBar({ activeTab, setActiveTab, onRun }: Activity
                 active={activeTab === 'settings'}
                 onClick={() => setActiveTab('settings')}
                 bottom
+                indicator
             />
         </div>
     )
