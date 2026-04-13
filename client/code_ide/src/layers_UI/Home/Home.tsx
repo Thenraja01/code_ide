@@ -13,7 +13,8 @@ export default function Home() {
   return (
     <>
       {/* HERO */}
-      <section className="px-6 py-16 md:py-24 flex  flex-col md:flex-row  gap-8">
+     <div className=" flex flex-col md:flex-row">
+      <section className="px-6 py-16 md:py-24 flex  flex-col  gap-8">
 
         {/* Animated Logo Title */}
         <motion.h1
@@ -69,6 +70,7 @@ export default function Home() {
       <div className="">
           <img src={homeImg} alt="home" />
       </div>
+     </div>
 
       <Separator />
 
