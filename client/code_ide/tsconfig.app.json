@@ -20,7 +20,7 @@
     "moduleDetection": "force",
     "noEmit": true,
     "jsx": "react-jsx",
-    "baseUrl": "",
+    "baseUrl": "./",
     "paths": {
       "@/*": [
         "./src/*"
@@ -30,9 +30,8 @@
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true,
-    "noUncheckedSideEffectImports": true
+    "ignoreDeprecations": "5.0"
   },
   "include": [
     "src"
