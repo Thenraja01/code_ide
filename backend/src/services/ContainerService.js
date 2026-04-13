@@ -15,7 +15,7 @@ class ContainerService {
   }
 
   async createContainer(projectId, language) {
-    const rawPath = path.resolve(__dirname, '../../workspaces', projectId);
+    const rawPath = path.resolve(__dirname, '../../workspace', projectId);
     const workspacePath = rawPath.replace(/\\/g, '/');
     if (!fs.existsSync(workspacePath)) {
       fs.mkdirSync(workspacePath, { recursive: true });
@@ -44,7 +44,7 @@ class ContainerService {
            id: existing.id, 
            status: 'running', 
            ports: inspectData.NetworkSettings.Ports, 
-           previewUrl: existingHostPort ? `http://localhost:${existingHostPort}` : null 
+           previewUrl: existingHostPort ? `http://YOUR_VPS_IP:${existingHostPort}` : null 
         };
       }
     } catch (e) {
@@ -119,7 +119,7 @@ class ContainerService {
         id: container.id, 
         status: 'running', 
         ports: inspectData.NetworkSettings.Ports,
-        previewUrl: `http://localhost:${hostPort}`
+        previewUrl: `http://YOUR_VPS_IP:${hostPort}`
       };
     } catch (error) {
       console.error('Docker Error:', error);
