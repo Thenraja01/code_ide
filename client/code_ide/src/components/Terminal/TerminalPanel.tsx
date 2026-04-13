@@ -65,7 +65,7 @@ export default function TerminalPanel({ projectId, onCommand }: TerminalPanelPro
         try { fitAddon.fit(); } catch(e) {}
     }, 100);
 
-    const wsUrl = `ws://YOUR_VPS_IP:5000?projectId=${projectId}`;
+    const wsUrl = `ws://localhost:5000?projectId=${projectId}`;
     const socket = new WebSocket(wsUrl);
     socketRef.current = socket;
 
