@@ -14,6 +14,7 @@ export default {
           '0%, 100%': { backgroundColor: '#3b82f6' },
           '50%': { backgroundColor: '#ef4444' },
         },
+        
       },
     },
   },
