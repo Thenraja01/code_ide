@@ -2,8 +2,6 @@ import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import Timeline from "./Timeline";
 import { useHandleNavigate } from "../utils/CustomFunction/HandleNavigate";
-import Footer from "./Footer";
-import { Separator } from "@/components/ui/separator";
 
 export default function Home() {
 
@@ -64,32 +62,7 @@ export default function Home() {
         </motion.div>
 
       </section>
-      <div className="">
-
-          <img src="/src/assets/home1.png" alt="home"  />
-      </div>
-          </div>
-      <Separator />
-       {/* Animated Logo Title */}
-       <div className="text-center mt-16 mb-8">
-
-        <motion.h1
-          initial={{ opacity: 0, y: 40 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8 }}
-          className="font-black leading-tight tracking-tight"
-          >
-          <span className="block text-5xl  sm:text-6xl md:text-7xl bg-linear-to-b from-gray-700 to-white  text-transparent bg-clip-text">
-            Timeline
-          </span>
-
-          <span className="block text-2xl sm:text-5xl  underline md:text-4xl bg-linear-to-bl from-red-600 via-purple-600 to-gray-700 text-transparent bg-clip-text">
-            SPACE
-          </span>
-        </motion.h1>
-            </div>
       <Timeline/>
-      <Footer />
 
     </>
   );
