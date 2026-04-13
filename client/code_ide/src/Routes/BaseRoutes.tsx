@@ -52,7 +52,6 @@ export default function BaseRoutes() {
         </Route>
 
         {/* Protected */}
-        <Route element={<ProtectedRoute />}>
 
           {/* Dashboard */}
           <Route path="/dashboard" element={<DashBoardLayout />}>
@@ -71,6 +70,7 @@ export default function BaseRoutes() {
             <Route index element={<CodeEditor />} />
           </Route>
 
+        <Route element={<ProtectedRoute />}>
         </Route>
 
         {/* 404 */}
