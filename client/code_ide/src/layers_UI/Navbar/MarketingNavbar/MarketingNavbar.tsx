@@ -4,8 +4,6 @@ import {
     NavigationMenuList,
 } from "@/components/ui/navigation-menu";
 import { AlignHorizontalDistributeCenter, Dock, HomeIcon } from "lucide-react";
-import codespace_logo from "@/../public/icons/bg_light.svg";
-import codespacelight from "@/../public/icons/bg_light_1.svg";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/components/Provider/themeprovider";
 import { ModeToggle } from "@/components/Provider/Theme/toggletheme"; 
@@ -36,7 +34,7 @@ export const pages = [
 export default function MarketingNavbar() {
     const { theme } = useTheme()
     const handleNavigate=useHandleNavigate()
-    const logo = theme === "light" ? codespace_logo : codespacelight;
+    const logo = theme === "light" ? "/icons/bg_light.svg" : "/icons/bg_light_1.svg";
 
     return (
         <>
