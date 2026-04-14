@@ -46,6 +46,9 @@ exports.getMe = async (req, res) => {
       select: { id: true, email: true, name: true, avatar: true, provider: true, createdAt: true }
     });
     if (!user) return res.status(404).json({ message: "User not found" });
+    
+    // Disable caching for sensitive user data to avoid 304 issues
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.json(user);
   } catch (err) {
     res.status(500).json({ message: "Internal server error" });
