@@ -31,11 +31,10 @@ const Signup = () => {
   }
 
   return (
-    <div className="w-full max-w-lg">
+    <div className="w-full max-w-lg ">
       <Toaster position='top-center' theme={theme} />
       <Card
         className="
-          min-h-[600px]
           p-10 md:p-12
           flex flex-col justify-center
           rounded-3xl
@@ -45,7 +44,7 @@ const Signup = () => {
         "
       >
         {/* Logo */}
-        <div className="flex justify-center mb-8">
+        <div className="flex justify-center">
           <div className="h-16 w-16 rounded-2xl bg-primary text-primary-foreground flex items-center justify-center shadow-md">
             <Code2 className="h-8 w-8" />
           </div>

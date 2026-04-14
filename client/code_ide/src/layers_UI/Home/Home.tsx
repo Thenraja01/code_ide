@@ -18,6 +18,7 @@ export default function Home() {
 
   return (
     <>
+<<<<<<< HEAD
       {/* HERO SECTION */}
       <div className="flex flex-col md:flex-row items-center justify-between gap-12 px-6 py-16 md:py-28 max-w-7xl mx-auto">
         
@@ -36,6 +37,11 @@ export default function Home() {
               SPACE
             </span>
           </motion.h1>
+=======
+      {/* HERO */}
+      <div className="flex flex-col md:flex-row items-center gap-12 md:gap-24 px-6 py-16 md:py-24">
+      <section className="px-6 py-16 md:py-24 flex  flex-col gap-8">
+>>>>>>> 5ec7192 (authpage ui updation)
 
           {/* Subtitle */}
           <motion.p
@@ -82,7 +88,8 @@ export default function Home() {
           />
         </motion.div>
       </div>
-
+      </div>
+    
       <Separator />
 
       {/* TIMELINE SECTION HEADER */}

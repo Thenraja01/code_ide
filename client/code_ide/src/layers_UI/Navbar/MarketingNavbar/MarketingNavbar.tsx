@@ -9,6 +9,7 @@ import { useTheme } from "@/components/Provider/themeprovider";
 import { ModeToggle } from "@/components/Provider/Theme/toggletheme"; 
 import NavMenu from "../NavMenu";
 import { useHandleNavigate } from "@/layers_UI/utils/CustomFunction/HandleNavigate";
+import { Separator } from "@/components/ui/separator";
 
 export const pages = [
     {
@@ -72,6 +73,8 @@ export default function MarketingNavbar() {
 
                     <NavMenu />
                 </div>
+                <Separator/>
+                
 
             </div>
         </>
