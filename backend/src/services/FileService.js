@@ -4,7 +4,7 @@ const prisma = require('../config/db');
 
 class FileService {
   async syncToDisk(projectId) {
-    const rawPath = path.resolve(__dirname, '../../workspace', projectId);
+    const rawPath = path.resolve(__dirname, '../../workspaces', projectId);
     const workspacePath = rawPath.replace(/\\/g, '/');
 
     if (!fs.existsSync(workspacePath)) {
@@ -54,7 +54,7 @@ class FileService {
   }
 
   async syncToDb(projectId) {
-    const rawPath = path.resolve(__dirname, '../../workspace', projectId);
+    const rawPath = path.resolve(__dirname, '../../workspaces', projectId);
     const workspacePath = rawPath.replace(/\\/g, '/');
     
     if (!fs.existsSync(workspacePath)) return;

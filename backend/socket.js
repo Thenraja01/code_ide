@@ -23,14 +23,12 @@ function setupSockets(server) {
     let container;
 
     try {
-      const workspacePath = path.join(process.cwd(), "workspace", projectId);
+      const workspacePath = path.join(process.cwd(), "workspaces", projectId);
 
-      /* ------------------- CREATE WORKSPACE ------------------- */
       if (!fs.existsSync(workspacePath)) {
         fs.mkdirSync(workspacePath, { recursive: true });
       }
 
-      /* ------------------- GET OR CREATE CONTAINER ------------------- */
       try {
         container = docker.getContainer(`codespace-${projectId}`);
         await container.inspect();

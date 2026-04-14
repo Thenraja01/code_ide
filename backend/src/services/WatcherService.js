@@ -4,7 +4,7 @@ const FileService = require('./FileService');
 
 class WatcherService {
   init(wss) {
-  const workspacesPath = path.resolve(process.cwd(), 'workspace');
+    const workspacesPath = path.resolve(process.cwd(), 'workspaces');
 
   console.log(`[Watcher] Watching: ${workspacesPath}`);
 

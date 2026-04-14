@@ -15,7 +15,7 @@ class ContainerService {
   }
 
   async createContainer(projectId, language) {
-    const rawPath = path.resolve(__dirname, '../../workspace', projectId);
+    const rawPath = path.resolve(__dirname, '../../workspaces', projectId);
     const workspacePath = rawPath.replace(/\\/g, '/');
     if (!fs.existsSync(workspacePath)) {
       fs.mkdirSync(workspacePath, { recursive: true });
@@ -57,7 +57,7 @@ class ContainerService {
 
     switch (language?.toLowerCase()) {
       case 'react':
-        Image = 'node:18-slim';
+        Image = 'node:18';
         exposedPort = "5173";
         break;
       case 'next':
@@ -65,7 +65,7 @@ class ContainerService {
       case 'express':
       case 'vanilla':
       case 'javascript':
-        Image = 'node:18-slim';
+        Image = 'node:18';
         exposedPort = "3000";
         break;
       case 'flask':
@@ -75,7 +75,7 @@ class ContainerService {
         exposedPort = "5000";
         break;
       default:
-        Image = 'node:18-slim';
+        Image = 'node:18';
     }
 
     const hostPort = this.getAvailablePort();
