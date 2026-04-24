@@ -4,9 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Mail, Github, LogOut, KeyRound, User, CheckCircle2, AlertCircle } from "lucide-react";
-import { useMeQuery } from "@/hooks/useAuth.hooks";
+import { useMeQuery, useGithubAuthMutation } from "@/hooks/useAuth.hooks";
+import { auth, githubProvider } from "@/services/firebase";
+import { signInWithPopup } from "firebase/auth";
 import { useQueryClient } from "@tanstack/react-query";
-import { useHandleNavigate } from "@/layers_UI/utils/CustomFunction/HandleNavigate";
+import { useHandleNavigate } from "@/hooks/HandleNavigate";
 import { updateProfile, verifyOTP, changePassword } from "@/api/user.api";
 import { toast } from "sonner";
 import { useState, useEffect } from "react";
@@ -22,6 +24,26 @@ export default function ProfilePage() {
   const [isOtpSent, setIsOtpSent] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [isLinkingGithub, setIsLinkingGithub] = useState(false);
+  const { mutate: linkGithub } = useGithubAuthMutation();
+
+  const handleLinkGithub = async () => {
+    setIsLinkingGithub(true);
+    try {
+      const result = await signInWithPopup(auth, githubProvider);
+      const idToken = await result.user.getIdToken();
+      linkGithub({ idToken }, {
+        onSuccess: () => {
+          toast.success("GitHub account linked successfully");
+          queryClient.invalidateQueries({ queryKey: ["user"] });
+        }
+      });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to link GitHub");
+    } finally {
+      setIsLinkingGithub(false);
+    }
+  };
 
   useEffect(() => {
     if (user) {
@@ -163,11 +185,18 @@ export default function ProfilePage() {
                 <div className="flex flex-col">
                   <span className="text-sm font-medium">GitHub Account</span>
                   <span className="text-[10px] text-muted-foreground">
-                    {user?.provider === 'google' ? 'Connected via Google' : 'Local Authentication'}
+                    {user?.provider === 'github' ? 'Connected' : 'Not Connected'}
                   </span>
                 </div>
               </div>
-              <Button variant="outline" size="sm" disabled>Linked</Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleLinkGithub} 
+                disabled={isLinkingGithub || user?.provider === 'github'}
+              >
+                {user?.provider === 'github' ? 'Linked' : isLinkingGithub ? 'Connecting...' : 'Link Account'}
+              </Button>
             </div>
 
             {/* Change Password */}

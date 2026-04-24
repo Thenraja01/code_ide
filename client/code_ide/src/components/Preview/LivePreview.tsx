@@ -1,5 +1,3 @@
-import React from 'react';
-
 export default function LivePreview({ previewUrl }: { previewUrl: string | null }) {
   if (!previewUrl) {
     return (

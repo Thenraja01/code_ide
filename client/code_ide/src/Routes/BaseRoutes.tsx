@@ -1,82 +1,94 @@
 import { lazy, Suspense } from 'react'
 import { Route, Routes } from 'react-router-dom'
-import ProtectedRoute from '@/layers_UI/utils/ProtectedRoute'
+import ProtectedRoute from '@/components/layout/ProtectedRoute'
+import ErrorBoundary from '@/components/Editor/parts/ErrorBoundary'
 
-// Layouts
-const Layout = lazy(() => import('@/layers_UI/utils/Layouts/Layout'))
-const AuthLayout = lazy(() => import('@/layers_UI/utils/Layouts/AuthLayout'))
-const DashBoardLayout = lazy(() => import('@/layers_UI/utils/Layouts/DashBoardLayout'))
-const EditorLayout = lazy(() => import('@/layers_UI/utils/Layouts/EditorLayout'))
+// Layouts (DO NOT lazy load these)
+import Layout from '@/components/layout/Layout'
+import AuthLayout from '@/components/layout/AuthLayout'
+import DashBoardLayout from '@/components/layout/DashBoardLayout'
+import EditorLayout from '@/components/layout/EditorLayout'
 
-// Public Pages
-const Home = lazy(() => import('@/layers_UI/Home/Home'))
-const Docs = lazy(() => import('@/layers_UI/Docpage/Docs'))
+// Public
+import Home from '@/pages/Home/Home'
+const Docs = lazy(() => import('@/pages/Docs/Docs'))
 
-// Auth Pages
-const Login = lazy(() => import('@/layers_UI/Login/Login'))
-const Signup = lazy(() => import('@/layers_UI/Login/Signup'))
+// Auth
+import Login from '@/pages/Login/Login'
+import Signup from '@/pages/Login/Signup'
 
-// Dashboard Pages
-const Dashboard = lazy(() => import('../layers_UI/Section/Dashboard/Dashboard'))
-const DashHome = lazy(() => import('../layers_UI/Section/Dashboard/Home'))
-const Todo = lazy(() => import('../layers_UI/Section/todo/Todo'))
-const Projects = lazy(() => import('../layers_UI/Section/Dashboard/Projects'))
-const Recent = lazy(() => import('../layers_UI/Section/Dashboard/Recent'))
-const Starred = lazy(() => import('../layers_UI/Section/Dashboard/Starred'))
-const Settings = lazy(() => import('../layers_UI/Section/Dashboard/Settings'))
+// Dashboard
+const DashHome = lazy(() => import('@/pages/Dashboard/Home'))
+const Todo = lazy(() => import('@/pages/Dashboard/todo/Todo'))
+const Projects = lazy(() => import('@/pages/Dashboard/Projects'))
+const Templates = lazy(() => import('@/pages/Dashboard/Templates'))
+const Starred = lazy(() => import('@/pages/Dashboard/Starred'))
+const Settings = lazy(() => import('@/pages/Dashboard/Settings'))
 
-// Others
+// Editor / Rare
 const CodeEditor = lazy(() => import('@/components/Editor/CodeEditor'))
 const ProfilePage = lazy(() => import('@/components/UserProfile/ProfilePage'))
-const NotFound = lazy(() => import('@/layers_UI/NotFound/NotFound'))
+const NotFound = lazy(() => import('@/pages/NotFound/NotFound'))
 
 export default function BaseRoutes() {
   return (
-    <Suspense fallback={
-      <div className="h-screen flex items-center justify-center animate-pulse">
-        Loading CodeSpace...
-      </div>
-    }>
-      <Routes>
+    <ErrorBoundary>
+      <Suspense
+        fallback={
+          <div className="h-screen w-screen flex flex-col items-center justify-center bg-zinc-950 text-zinc-100 gap-4">
+            <div className="w-10 h-10 bg-gradient-to-br from-primary to-purple-600 rounded-lg flex items-center justify-center animate-pulse shadow-xl shadow-primary/10">
+              <span className="text-white text-xs font-bold">CS</span>
+            </div>
+            <div className="flex flex-col items-center gap-1">
+              <div className="h-0.5 w-24 bg-zinc-900 rounded-full overflow-hidden">
+                <div className="h-full bg-primary animate-progress-loading" />
+              </div>
+              <span className="text-[9px] text-zinc-600 uppercase tracking-[0.3em] font-bold mt-2">Loading Workspace</span>
+            </div>
+          </div>
+        }
+      >
+        <Routes>
 
-        {/* Public */}
-        <Route path="/" element={<Layout />}>
-          <Route index element={<Home />} />
-          <Route path="docs" element={<Docs />} />
-        </Route>
-
-        {/* Auth */}
-        <Route element={<AuthLayout />}>
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
-        </Route>
-
-        {/* Protected */}
-        <Route element={<ProtectedRoute />}>
-
-          {/* Dashboard */}
-          <Route path="/dashboard" element={<DashBoardLayout />}>
-            <Route index element={<Dashboard />} />
-            <Route path="home" element={<DashHome />} />
-            <Route path="todo" element={<Todo />} />
-            <Route path="projects" element={<Projects />} />
-            <Route path="recent" element={<Recent />} />
-            <Route path="starred" element={<Starred />} />
-            <Route path="profile" element={<ProfilePage />} />
-            <Route path="settings" element={<Settings />} />
+          {/* Public */}
+          <Route path="/" element={<Layout />}>
+            <Route index element={<Home />} />
+            <Route path="docs" element={<Docs />} />
           </Route>
 
-          {/* Editor */}
-          <Route path="/dashboard/editor/:projectId" element={<EditorLayout />}>
-            <Route index element={<CodeEditor />} />
+          {/* Auth */}
+          <Route element={<AuthLayout />}>
+            <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<Signup />} />
           </Route>
 
-        </Route>
+          {/* Protected */}
+          <Route element={<ProtectedRoute />}>
 
-        {/* 404 */}
-        <Route path="*" element={<NotFound />} />
+            {/* Dashboard */}
+            <Route path="/dashboard" element={<DashBoardLayout />}>
+              <Route index element={<DashHome />} />
+              <Route path="home" element={<DashHome />} />
+              <Route path="todo" element={<Todo />} />
+              <Route path="projects" element={<Projects />} />
+              <Route path="templates" element={<Templates />} />
+              <Route path="starred" element={<Starred />} />
+              <Route path="profile" element={<ProfilePage />} />
+              <Route path="settings" element={<Settings />} />
+            </Route>
 
-      </Routes>
-    </Suspense>
+            {/* Editor */}
+            <Route path="/dashboard/editor/:projectId" element={<EditorLayout />}>
+              <Route index element={<CodeEditor />} />
+            </Route>
+
+          </Route>
+
+          {/* 404 */}
+          <Route path="*" element={<NotFound />} />
+
+        </Routes>
+      </Suspense>
+    </ErrorBoundary>
   )
 }

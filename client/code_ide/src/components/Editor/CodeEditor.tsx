@@ -1,242 +1,294 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import ActivityBar from './parts/ActivityBar'
-import Sidebar from './parts/Sidebar'
-import EditorTabs from './parts/EditorTabs'
+import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useParams } from 'react-router-dom'
+import { toast } from 'sonner'
+import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
+import { useQuery, useMutation } from 'convex/react'
+import { api } from "@convex/_generated/api"
+import * as Sentry from '@sentry/react'
+
 import MonacoEditor from './parts/MonacoEditor'
 import StatusBar from './parts/StatusBar'
 import TopBar from './parts/TopBar'
 import AIPanel from './parts/AIPanel'
-import NewFileDialog from './parts/NewFileDialog'
 import TerminalPanel from '../Terminal/TerminalPanel'
 import PreviewPanel from '../Preview/PreviewPanel'
-import { AnimatePresence, motion } from 'framer-motion'
-import { useParams } from 'react-router-dom'
-import { useFilesQuery, useUpdateFileMutation, useCreateFileMutation } from '@/hooks/useFile.hooks'
-import { useInitializeProjectMutation } from '@/hooks/useProject.hooks'
-import { useCommandMutation, useStartPreviewMutation, useStopPreviewMutation } from '@/hooks/useExecution.hooks'
-import { toast } from 'sonner'
 
-type FileType = {
-  id: string
-  name: string
-  language: string
-  content: string
-}
+import {
+  useCommandMutation, 
+  useStartPreviewMutation,
+  useStopPreviewMutation
+} from '@/hooks/useExecution.hooks'
+import { Sparkles, Globe, Link, Loader2 } from 'lucide-react'
+import { webcontainerService } from '@/services/WebContainerService'
+
+
+import Sidebar from './parts/Sidebar'
+import axios from 'axios'
+
+const WEB_FRAMEWORKS = ['react', 'vanilla', 'express', 'fastapi', 'node', 'nextjs']
 
 export default function CodeEditor() {
   const { projectId } = useParams<{ projectId: string }>()
-  const { data: projectFiles = [] } = useFilesQuery(projectId || '')
-  const { mutate: initializeProject } = useInitializeProjectMutation()
-  
-  // Execution Hooks
-  const { mutate: executeCommand } = useCommandMutation()
-  const { mutate: startPreview, isPending: isStartingPreview } = useStartPreviewMutation()
-  const { mutate: stopPreview } = useStopPreviewMutation()
-  const { mutate: createFile } = useCreateFileMutation()
-  const { mutate: updateFile } = useUpdateFileMutation(projectId)
 
-  const [files, setFiles] = useState<FileType[]>([])
+  // ---------------- Convex ----------------
+  const projectFiles = useQuery(api.files.getFilesByProject, {
+    projectId: projectId as any
+  })
+
+  const project = useQuery(api.projects.getProjectById, {
+    projectId: projectId as any
+  })
+
+  const updateFileContent = useMutation(api.files.updateFileContent)
+
+  const { mutate: executeCommand } = useCommandMutation()
+  const { mutate: startPreview } = useStartPreviewMutation()
+  const { mutate: stopPreview } = useStopPreviewMutation()
+
+  const [sessionId] = useState(() => crypto.randomUUID())
   const [activeFileId, setActiveFileId] = useState('')
-  const [activeTab, setActiveTab] = useState('explorer')
   const [showTerminal, setShowTerminal] = useState(true)
   const [showPreview, setShowPreview] = useState(false)
-  const [isAiOpen, setIsAiOpen] = useState(false)
   const [previewUrl, setPreviewUrl] = useState('')
-  const [isNewFileDialogOpen, setIsNewFileDialogOpen] = useState(false)
-  const [creationType, setCreationType] = useState<"FILE" | "FOLDER">("FILE")
+  const [activeView, setActiveView] = useState<'code' | 'preview'>('code')
+  const [activeTab, setActiveTab] = useState('explorer')
 
-  // Auto-initialize project on load
-  useEffect(() => {
-    if (projectId) {
-      initializeProject(projectId);
-    }
-  }, [projectId, initializeProject]);
+  const [buffers, setBuffers] = useState<Record<string, string>>({})
+  const [injectedUrl, setInjectedUrl] = useState('')
+  const [isUrlLoading, setIsUrlLoading] = useState(false)
 
   useEffect(() => {
-    if (projectFiles.length > 0) {
-      const mappedFiles: (FileType & { type: string })[] = projectFiles
-        .map((f: any) => ({
-          id: f.id,
-          name: f.name,
-          language: f.name.endsWith('.jsx') || f.name.endsWith('.tsx') ? 'javascript' : (f.name.endsWith('.css') ? 'css' : 'javascript'),
-          content: f.content || '',
-          type: f.type
-        }))
-      
-      // Merge local changed files to prevent reset during debounced typing updates
-      setFiles(prev => {
-        if (prev.length === 0) return mappedFiles;
-        return mappedFiles.map(mf => {
-          const existing = prev.find(pf => pf.id === mf.id);
-          // Prefer local content if it exists to avoid cursor jumping
-          return existing ? { ...mf, content: existing.content } : mf;
-        });
-      });
-      if (!activeFileId && mappedFiles.length > 0) {
-        setActiveFileId(mappedFiles[0].id)
-      }
+    if (!projectFiles?.length) return
+
+    const newBuffers: Record<string, string> = {}
+
+    projectFiles.forEach((f: any) => {
+      newBuffers[f._id] = f.content || ''
+    })
+
+    setBuffers(newBuffers)
+
+    if (!activeFileId) {
+      setActiveFileId(projectFiles[0]?._id || '')
     }
   }, [projectFiles])
 
-  const activeFile = files.find((f) => f.id === activeFileId)
+  const activeFile = useMemo(() => {
+    if (!projectFiles) return null
+    return projectFiles.find((f: any) => f._id === activeFileId)
+  }, [projectFiles, activeFileId])
+
+  const handleContentChange = useCallback((value: string | undefined) => {
+    if (!activeFileId || typeof value !== 'string') return
+
+    setBuffers(prev => ({
+      ...prev,
+      [activeFileId]: value
+    }))
+  }, [activeFileId])
 
   useEffect(() => {
-    if (!activeFile) return;
-    const timer = setTimeout(() => {
-      const original = projectFiles.find((f: any) => f.id === activeFile.id);
-      if (original && original.content !== activeFile.content) {
-        updateFile({ id: activeFile.id, content: activeFile.content });
+    if (!activeFileId) return
+
+    const timer = setTimeout(async () => {
+      try {
+        await updateFileContent({
+          fileId: activeFileId as any,
+          content: buffers[activeFileId] || ''
+        })
+
+        // Sync to WebContainer
+        if (activeFile) {
+           const wc = await webcontainerService.load();
+           await wc.fs.writeFile(activeFile.name, buffers[activeFileId] || '');
+        }
+      } catch (e) {
+        Sentry.captureException(e)
       }
-    }, 1500);
-    return () => clearTimeout(timer);
-  }, [activeFile?.content, activeFile?.id, projectFiles, updateFile]);
+    }, 1000)
 
-  const handleCommand = (command: string) => {
-    if (!projectId) return;
+    return () => clearTimeout(timer)
+  }, [buffers, activeFileId])
+
+  // ---------------- RUN COMMAND ----------------
+  const handleCommand = useCallback((command: string) => {
+    if (!projectId) return
+
     executeCommand({ projectId, command }, {
-        onSuccess: (data) => toast.success(data.message),
-        onError: (err: any) => toast.error(err.response?.data?.message || "Failed to execute command")
-    });
-  }
+      onSuccess: () => toast.success('Command executed'),
+      onError: () => toast.error('Execution failed')
+    })
+  }, [projectId])
 
-  const handleTogglePreview = () => {
-    if (!projectId) return;
-    if (showPreview) {
-        stopPreview(projectId);
-        setShowPreview(false);
-        setPreviewUrl('');
+  // ---------------- RUN / PREVIEW ----------------
+  const handleRun = useCallback(() => {
+    if (!projectId) return
+
+    const lang = project?.language?.toLowerCase() || 'vanilla'
+    const isWeb = WEB_FRAMEWORKS.includes(lang)
+
+    if (isWeb) {
+      if (showPreview) {
+        stopPreview(projectId)
+        setShowPreview(false)
+        setPreviewUrl('')
+      } else {
+        startPreview({ projectId, framework: lang }, {
+          onSuccess: (data) => {
+            setPreviewUrl(data.url)
+            setShowPreview(true)
+            setActiveView('preview')
+          }
+        })
+      }
     } else {
-        // Find framework from files (package.json check would be better)
-        const framework = projectFiles.find((f: any) => f.name === 'package.json') ? 'react' : 'vanilla';
-        startPreview({ projectId, framework }, {
-            onSuccess: (data) => {
-                setPreviewUrl(data.url);
-                setShowPreview(true);
-            },
-            onError: (err: any) => toast.error(err.response?.data?.message || "Failed to start preview")
-        });
+      const fileName = activeFile?.name || 'main.py'
+      let cmd = ''
+
+      switch (lang) {
+        case 'python': cmd = `python3 ${fileName}`; break
+        case 'java': cmd = `javac ${fileName} && java ${fileName.split('.')[0]}`; break
+        case 'c': cmd = `gcc ${fileName} -o main && ./main`; break
+        case 'cpp': cmd = `g++ ${fileName} -o main && ./main`; break
+        default: cmd = `echo Running ${fileName}`
+      }
+
+      handleCommand(cmd)
     }
+  }, [projectId, project, showPreview, activeFile])
+
+  const getLanguageFromExtension = (filename: string) => {
+    const ext = filename.split('.').pop()?.toLowerCase()
+    if (!ext) return 'text'
+    const map: Record<string, string> = {
+      js: 'javascript',
+      jsx: 'javascript',
+      ts: 'typescript',
+      tsx: 'typescript',
+      html: 'html',
+      css: 'css',
+      json: 'json',
+      md: 'markdown',
+      py: 'python',
+      java: 'java',
+      c: 'c',
+      cpp: 'cpp',
+      go: 'go',
+      rs: 'rust',
+      php: 'php',
+      rb: 'ruby',
+    }
+    return map[ext] || 'text'
   }
 
+  // ---------------- RENDER ----------------
   return (
-    <div className="h-screen w-screen flex flex-col bg-[#0b0b0f] text-[#f4f4f5] overflow-hidden font-sans select-none">
-      <TopBar 
-        onPlay={handleTogglePreview} 
-        isPreviewRunning={showPreview} 
-        onToggleTerminal={() => setShowTerminal(!showTerminal)} 
-        onNewFile={(type) => {
-            setCreationType(type);
-            setIsNewFileDialogOpen(true);
-        }}
+    <div className="h-screen w-screen flex flex-col bg-[#0f0f11] text-zinc-100 overflow-hidden font-sans">
+
+      <TopBar
+        projectName={project?.title}
+        onPlay={handleRun}
+        isPreviewRunning={showPreview}
+        onToggleTerminal={() => setShowTerminal(s => !s)}
+        activeView={activeView}
+        onViewChange={setActiveView}
       />
 
-
-      <div className="flex flex-1 overflow-hidden relative">
-        <ActivityBar
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          isAiOpen={isAiOpen}
-          toggleAi={() => setIsAiOpen(!isAiOpen)}
+      <div className="bg-zinc-900/50 border-b border-[#222] px-4 py-1.5 flex items-center gap-3">
+        <Link size={14} className="text-zinc-500" />
+        <input 
+          placeholder="Paste documentation URL for AI context..."
+          className="bg-transparent text-xs text-zinc-300 outline-none flex-1"
+          onKeyDown={async (e) => {
+            if (e.key === 'Enter') {
+                const url = (e.target as HTMLInputElement).value;
+                setIsUrlLoading(true);
+                try {
+                    const response = await axios.post(`${import.meta.env.VITE_BACKEND_URL}/api/ai/extract`, { url });
+                    setInjectedUrl(response.data.content);
+                    toast.success('Context injected from URL');
+                } catch (err) {
+                    toast.error('Failed to extract URL content');
+                } finally {
+                    setIsUrlLoading(false);
+                }
+            }
+          }}
         />
+        {isUrlLoading && <Loader2 size={12} className="animate-spin text-zinc-500" />}
+      </div>
 
-        <AnimatePresence>
-          {activeTab !== 'none' && (
+      <div className="flex-1 flex flex-col overflow-hidden">
+
+        <PanelGroup direction="horizontal">
+          {/* 1. AI CHAT (FAR LEFT) */}
+          <Panel defaultSize={20} minSize={15} maxSize={30}>
+            <AIPanel
+              currentCode={buffers[activeFileId] || ''}
+              fileId={activeFileId}
+              sessionId={sessionId}
+              isOpen={true}
+              onClose={() => {}}
+              isEmbedded={true}
+              injectedUrlContent={injectedUrl}
+            />
+          </Panel>
+
+          <PanelResizeHandle className="w-[1px] bg-[#222]" />
+
+          {/* 2. EXPLORER (LEFT-CENTER) */}
+          <Panel defaultSize={15} minSize={10} maxSize={25}>
             <Sidebar
               activeTab={activeTab}
-              files={files}
+              files={(projectFiles || []).map((f:any) => ({...f, id: f._id}))}
               activeFileId={activeFileId}
               setActiveFileId={setActiveFileId}
-              onNewFile={(type) => {
-                  setCreationType(type);
-                  setIsNewFileDialogOpen(true);
-              }}
+              onNewFile={() => {}}
               onCloseSidebar={() => setActiveTab('none')}
             />
-          )}
-        </AnimatePresence>
+          </Panel>
 
-        <div className="flex flex-1 min-w-0 bg-[#0b0b0f]">
-          <div className="flex flex-col flex-1 border-r border-border/20">
-            <EditorTabs
-              files={files}
-              activeFileId={activeFileId}
-              setActiveFileId={setActiveFileId}
-              onCloseFile={(id) => setFiles(f => f.filter(x => x.id !== id))}
-            />
+          <PanelResizeHandle className="w-[1px] bg-[#222]" />
 
-            <div className="flex-1 relative overflow-hidden">
-              {activeFile ? (
-                <MonacoEditor
-                  language={activeFile.language}
-                  content={activeFile.content}
-                  onContentChange={(val) => setFiles(prev => prev.map(f => f.id === activeFileId ? {...f, content: val || ''} : f))}
-                />
-              ) : (
-                <div className="h-full flex flex-col items-center justify-center text-muted-foreground gap-4 opacity-50">
-                  <span className="text-4xl font-black tracking-tighter">CODE SPACE</span>
-                  <span className="text-xs">Open a file from the explorer to begin</span>
-                </div>
-              )}
-            </div>
-
-            <AnimatePresence>
+          {/* 3. CENTER VIEW (EDITOR OR PREVIEW) */}
+          <Panel defaultSize={65}>
+            <PanelGroup direction="vertical">
+              <Panel defaultSize={70}>
+                {activeView === 'code' ? (
+                  <MonacoEditor
+                    language={getLanguageFromExtension(activeFile?.name || '')}
+                    content={buffers[activeFileId] || ''}
+                    onContentChange={handleContentChange}
+                  />
+                ) : (
+                  <PreviewPanel
+                    url={previewUrl}
+                    isLoading={false}
+                    onStop={handleRun}
+                  />
+                )}
+              </Panel>
               {showTerminal && (
-                <motion.div 
-                    initial={{ height: 0 }}
-                    animate={{ height: 260 }}
-                    exit={{ height: 0 }}
-                    className="overflow-hidden border-t border-border/20"
-                >
-                  <TerminalPanel projectId={projectId || ''} onCommand={handleCommand} />
-                </motion.div>
+                <>
+                  <PanelResizeHandle className="h-[1px] bg-[#222]" />
+                  <Panel defaultSize={30}>
+                     <div className="h-full w-full bg-[#09090b]">
+                        <TerminalPanel projectId={projectId || ''} />
+                     </div>
+                  </Panel>
+                </>
               )}
-            </AnimatePresence>
-          </div>
-
-          {/* Live Preview Pane */}
-          {showPreview && (
-            <div className="w-1/3 min-w-[350px] p-2 bg-background/50 backdrop-blur-sm">
-                <PreviewPanel 
-                    url={previewUrl} 
-                    isLoading={isStartingPreview}
-                    onRefresh={() => {}} 
-                    onStop={handleTogglePreview}
-                />
-            </div>
-          )}
-        </div>
-
-        <AIPanel isOpen={isAiOpen} onClose={() => setIsAiOpen(false)} currentCode={activeFile?.content || ''} />
+            </PanelGroup>
+          </Panel>
+        </PanelGroup>
       </div>
 
       <StatusBar
-        language={activeFile?.language || 'plain text'}
-        lineCount={activeFile?.content.split('\n').length || 0}
-        onToggleTerminal={() => setShowTerminal(!showTerminal)}
-      />
-
-      <NewFileDialog
-        isOpen={isNewFileDialogOpen}
-        onClose={() => setIsNewFileDialogOpen(false)}
-        type={creationType}
-        onCreate={(name, type) => {
-            if (!projectId) return;
-            createFile({
-                projectId,
-                name,
-                type,
-                content: '',
-                parentId: null
-            }, {
-                onSuccess: (newFile) => {
-                    if (newFile.type === 'FILE' && newFile.id) {
-                        setActiveFileId(newFile.id);
-                    }
-                }
-            });
-        }}
+        language={activeFile?.name || 'text'}
+        lineCount={(buffers[activeFileId] || '').split('\n').length}
+        onToggleTerminal={() => setShowTerminal(s => !s)}
       />
     </div>
   )
