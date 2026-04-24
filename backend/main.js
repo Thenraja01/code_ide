@@ -1,18 +1,26 @@
-const express = require('express');
-const cors = require('cors');
-const helmet = require('helmet');
-const compression = require('compression');
-const rateLimit = require('express-rate-limit');
-const morgan = require('morgan');
+import express from 'express';
+import * as Sentry from '@sentry/node';
 
-const authRoutes = require('./src/routes/auth.route');
-const fileRoutes = require('./src/routes/file.route');
-const githubRoutes = require('./src/routes/github.route');
-const projectRoutes = require('./src/routes/project.route');
-const statsRoutes = require('./src/routes/stats.route');
-const userRoutes = require('./src/routes/user.route');
-const executionRoutes = require('./src/routes/execution.route');
-const authMiddleware = require('./src/middlewares/auth.middleware');
+
+import cors from 'cors';
+import helmet from 'helmet';
+import compression from 'compression';
+import rateLimit from 'express-rate-limit';
+import morgan from 'morgan';
+import passport from 'passport';
+
+import aiRoutes from './src/Router/ai.route.js';
+import authRoutes from './src/Router/auth.route.js';
+import projectRoutes from './src/Router/project.route.js';
+import fileRoutes from './src/Router/file.route.js';
+import githubRoutes from './src/Router/github.route.js';
+import userRoutes from './src/Router/user.route.js';
+import statsRoutes from './src/Router/stats.route.js';
+import authMiddleware from './src/middlewares/auth.middleware.js';
+
+import { serve } from "inngest/express";
+import { inngest } from "./src/inngest/client.js";
+import { functions } from "./src/inngest/index.js";
 
 const app = express();
 
@@ -22,6 +30,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(compression()); 
 app.use(morgan('dev')); 
+app.use(passport.initialize());
 
 // Rate limiting
 const limiter = rateLimit({
@@ -30,14 +39,17 @@ const limiter = rateLimit({
   message: 'Too many requests from this IP, please try again in 15 minutes!'
 });
 app.use('/api', limiter);
-
 app.use('/api/auth', authRoutes);
-app.use('/api/files', authMiddleware, fileRoutes);
-app.use('/api/github', authMiddleware, githubRoutes);
-app.use('/api/projects', authMiddleware, projectRoutes);
-app.use('/api/stats', statsRoutes);
+app.use('/api/ai', aiRoutes);
+app.use('/api/projects', projectRoutes);
+app.use('/api/files', fileRoutes);
+app.use('/api/github', githubRoutes);
 app.use('/api/user', userRoutes);
-app.use('/api/execute', authMiddleware, executionRoutes);
+app.use('/api/stats', statsRoutes);
+app.use('/api/inngest', serve({ client: inngest, functions }));
+
+// Sentry Error Handler
+Sentry.setupExpressErrorHandler(app);
 
 // Global Error Handler
 app.use((err, req, res, next) => {
@@ -48,5 +60,4 @@ app.use((err, req, res, next) => {
   });
 });
 
-module.exports = app;
-
+export default app;

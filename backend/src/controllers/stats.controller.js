@@ -1,64 +1,50 @@
-const prisma = require('../config/db');
+import { convex, anyApi } from '../config/convex.js';
 
-exports.getStats = async (req, res) => {
+/**
+ * Helper: Resolve Firebase UID → Convex user _id
+ */
+const getConvexUserId = async (firebaseUid) => {
+  const user = await convex.query(anyApi.users.getUserByUid, { firebaseUid });
+  if (!user) throw { status: 404, message: 'User not found in Convex' };
+  return user._id;
+};
+
+// GET /stats  — dashboard stats for the authenticated user
+export const getDashboardStats = async (req, res) => {
   try {
-    const userId = req.user?.userId;
-    if (!userId) return res.status(401).json({ error: "Unauthorized" });
-
-    const totalProjects = await prisma.project.count({ where: { userId } });
-    const totalAiPrompts = await prisma.aIPrompt.count({ where: { userId } });
-    const starredProjects = await prisma.project.count({ where: { userId, isStarred: true } });
-    const totalFiles = await prisma.file.count({ where: { project: { userId } } });
+    const userId = await getConvexUserId(req.user.uid);
+    const stats = await convex.query(anyApi.projects.getDashboardStats, { userId });
 
     res.json({
-      totalProjects,
-      totalAiPrompts,
-      starredProjects,
-      totalFiles,
+      totalProjects: parseInt(stats.totalProjects) || 0,
+      totalAiPrompts: parseInt(stats.totalAiPrompts) || 0,
+      starredProjects: parseInt(stats.starredProjects) || 0,
+      totalFiles: parseInt(stats.totalFiles) || 0,
       totalDeployments: 0,
-      totalLines: totalFiles * 50
+      totalLines: 0,
     });
   } catch (error) {
-    res.status(500).json({ error: "Failed to fetch stats", details: error.message });
+    console.error("Dashboard Stats Error:", error.message || error);
+    res.status(error.status || 500).json({ error: error.message || "Failed to fetch dashboard stats" });
   }
 };
 
-exports.getRecentActivity = async (req, res) => {
+// GET /stats/activity  — recent activity feed
+export const getRecentActivity = async (req, res) => {
   try {
-    const userId = req.user?.userId;
-    if (!userId) return res.status(401).json({ error: "Unauthorized" });
+    const userId = await getConvexUserId(req.user.uid);
+    const activities = await convex.query(anyApi.projects.getRecentActivity, { userId });
 
-    const recentProjects = await prisma.project.findMany({
-      where: { userId },
-      orderBy: { updatedAt: 'desc' },
-      take: 5
-    });
+    const result = activities.map(a => ({
+      type: a.type || 'project_created',
+      message: `${a.type === 'project_created' ? 'Created project' : 'Updated project'}: ${a.title}`,
+      time: new Date(a.timestamp).toISOString(),
+      iconType: a.type === 'project_created' ? 'create' : 'update',
+    }));
 
-    const recentAiPrompts = await prisma.aIPrompt.findMany({
-      where: { userId },
-      orderBy: { createdAt: 'desc' },
-      take: 5
-    });
-
-    const activities = [
-      ...recentProjects.map(p => ({
-        type: 'project',
-        message: `Created/Updated project "${p.title}"`,
-        time: p.updatedAt,
-        iconType: 'folder'
-      })),
-      ...recentAiPrompts.map(a => ({
-        type: 'ai',
-        message: `AI: ${a.prompt.substring(0, 30)}...`,
-        time: a.createdAt,
-        iconType: 'sparkles'
-      }))
-    ]
-    .sort((a, b) => new Date(b.time) - new Date(a.time))
-    .slice(0, 5);
-
-    res.json(activities);
+    res.json(result);
   } catch (error) {
-    res.status(500).json({ error: "Failed to fetch recent activity", details: error.message });
+    console.error("Recent Activity Error:", error.message || error);
+    res.status(error.status || 500).json({ error: error.message || "Failed to fetch recent activity" });
   }
 };
