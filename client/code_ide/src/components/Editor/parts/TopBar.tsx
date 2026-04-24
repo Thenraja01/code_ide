@@ -117,7 +117,12 @@ export default function TopBar({
         </button>
 
         <div className="w-7 h-7 bg-zinc-800 rounded-full flex items-center justify-center overflow-hidden border border-zinc-700 ml-1">
-          <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" alt="avatar" className="w-full h-full object-cover" />
+          <img 
+            src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" 
+            alt="avatar" 
+            className="w-full h-full object-cover" 
+            crossOrigin="anonymous"
+          />
         </div>
       </div>
     </div>

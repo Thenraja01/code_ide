@@ -25,7 +25,7 @@ export default function MonacoEditor({
     [onContentChange]
   )
 
-  const handleEditorDidMount: OnMount = (editor, monaco) => {
+  const handleEditorDidMount: OnMount = (_editor, monaco) => {
     monacoRef.current = monaco
     
     // Register AI Autocomplete Provider

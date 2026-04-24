@@ -5,32 +5,32 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { X, Sparkles, Loader2, Play, Zap } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import axios from 'axios'
-import { useAI } from '@/hooks/useAI'
 import { useQuery, useMutation } from 'convex/react'
 import { api } from "../../../../convex/_generated/api"
 import * as Sentry from '@sentry/react'
 import { toast } from 'sonner'
+import { useAuth } from '@/context/AuthContext'
 
 interface AIPanelProps {
   isOpen: boolean
-  onClose: () => void
-  currentCode: string
+  onClose?: () => void
   isEmbedded?: boolean
   fileId?: string
   sessionId?: string
+  projectId?: string
   injectedUrlContent?: string
 }
 
 export default function AIPanel({
   isOpen,
   onClose,
-  currentCode,
   isEmbedded,
   fileId,
   sessionId,
+  projectId,
   injectedUrlContent
 }: AIPanelProps) {
-
+  const { user } = useAuth()
   const [input, setInput] = useState('')
   const [messages, setMessages] = useState<any[]>([])
   const [isThinking, setIsThinking] = useState(false)
@@ -38,12 +38,15 @@ export default function AIPanel({
   const createFile = useMutation(api.files.createFile)
   const updateFileContent = useMutation(api.files.updateFileContent)
 
-  const aiMutation = useAI()
 
   // ---------------- CONVEX ----------------
   const chunks = useQuery(api.aiStreams.getChunks, {
     fileId: fileId || "none",
     sessionId: sessionId || "none"
+  })
+
+  const projectFiles = useQuery(api.files.getFilesByProject, {
+    projectId: projectId as any
   })
 
   const jobStatus = useQuery(api.jobStatus.getStatus, {
@@ -62,13 +65,13 @@ export default function AIPanel({
   // ---------------- SEND ----------------
   const handleGenerate = async () => {
     if (!input.trim() || !fileId || !sessionId) return;
-    
+
     setMessages(prev => [...prev, { role: 'user', content: `Generate code: ${input}` }]);
     const currentInput = input;
     setInput('');
 
     try {
-      await updateJobStatus({ fileId, sessionId, status: "generating" });
+      await updateJobStatus({ fileId, sessionId, status: "generating", userId: user?.firebaseUid });
 
       await axios.post(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api/ai/generate`, {
         prompt: currentInput,
@@ -78,12 +81,12 @@ export default function AIPanel({
       }, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
-      
+
       toast.success("Code generation started in background");
     } catch (error: any) {
       console.error("Generate error", error);
       toast.error("Failed to start generation");
-      await updateJobStatus({ fileId, sessionId, status: "error" });
+      await updateJobStatus({ fileId, sessionId, status: "error", userId: user?.firebaseUid });
     }
   }
 
@@ -99,24 +102,24 @@ export default function AIPanel({
     setInput('')
 
     try {
-      await updateJobStatus({ fileId, sessionId, status: "running" })
+      await updateJobStatus({ fileId, sessionId, status: "running", userId: user?.firebaseUid })
       setIsThinking(true)
 
       const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api/ai/agent`, {
-          method: 'POST',
-          headers: { 
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${localStorage.getItem('token')}`
-          },
-          body: JSON.stringify({ 
-            prompt: action, 
-            sessionId,
-            context: injectedUrlContent || "" 
-          })
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          prompt: action,
+          sessionId,
+          context: injectedUrlContent || ""
+        })
       });
 
       if (!response.body) throw new Error('No response body');
-      
+
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let fullContent = '';
@@ -126,19 +129,19 @@ export default function AIPanel({
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        
+
         const chunk = decoder.decode(value);
         fullContent += chunk;
-        
+
         setMessages(prev => {
-            const newMessages = [...prev];
-            newMessages[newMessages.length - 1].content = fullContent;
-            return newMessages;
+          const newMessages = [...prev];
+          newMessages[newMessages.length - 1].content = fullContent;
+          return newMessages;
         });
 
         // ---------------- PARSE TOOL CALLS (Markers) ----------------
         if (chunk.includes('CREATE_FILE:')) {
-            toast.info('AI is creating a file...');
+          toast.info('AI is creating a file...');
         }
       }
 
@@ -161,8 +164,9 @@ export default function AIPanel({
       await updateJobStatus({
         fileId,
         sessionId,
-        status: "error"
-      }).catch(() => {})
+        status: "error",
+        userId: user?.firebaseUid
+      }).catch(() => { })
     }
   }
 
@@ -170,22 +174,55 @@ export default function AIPanel({
     // 1. Parse CREATE_FILE
     const createMatches = content.matchAll(/CREATE_FILE: ([\w\/\.-]+)\n```\w*\n([\s\S]*?)```/g);
     for (const match of createMatches) {
-        const [_, path, code] = match;
-        const fileName = path.split('/').pop() || 'newfile.txt';
-        try {
-            await createFile({
-                name: fileName,
-                type: 'file',
-                content: code.trim(),
-                projectId: fileId as any, // This might need fix if fileId is not projectId
-            });
-            toast.success(`Created file: ${path}`);
-        } catch (e) { console.error(e); }
+      const [_, path, code] = match;
+      const fileName = path.split('/').pop() || 'newfile.txt';
+      try {
+        await createFile({
+          name: fileName,
+          content: code.trim(),
+          projectId: projectId as any,
+          userId: user?.firebaseUid
+        });
+        toast.success(`Created file: ${path}`);
+      } catch (e) { console.error(e); }
     }
 
     // 2. Parse EDIT_FILE (Search/Replace style)
     const editMatches = content.matchAll(/EDIT_FILE: ([\w\/\.-]+)\n<<<<<<< SEARCH\n([\s\S]*?)\n=======\n([\s\S]*?)\n>>>>>>>/g);
-    // ... Implement complex search/replace logic if needed
+    for (const match of editMatches) {
+      const [_, path, searchContent, replaceContent] = match;
+      const fileName = path.split('/').pop();
+
+      // Find the file by name in our project files
+      const file = projectFiles?.find((f: any) => f.name === fileName);
+      if (file) {
+        const currentContent = file.content || "";
+        if (currentContent.includes(searchContent.trim())) {
+          const newContent = currentContent.replace(searchContent.trim(), replaceContent.trim());
+          await updateFileContent({
+            fileId: file._id,
+            content: newContent,
+            userId: user?.firebaseUid
+          });
+          toast.success(`Updated file: ${path}`);
+        } else {
+          toast.error(`Could not find search block in ${path}`);
+        }
+      }
+    }
+
+    // 3. Parse DELETE_FILE
+    const deleteMatches = content.matchAll(/DELETE_FILE: ([\w\/\.-]+)/g);
+    for (const match of deleteMatches) {
+      const [_, path] = match;
+      const fileName = path.split('/').pop();
+      const file = projectFiles?.find((f: any) => f.name === fileName);
+      if (file) {
+        // Assuming we have a deleteFile mutation
+        // await deleteFile({ fileId: file._id });
+        toast.warning(`Deletion requested for ${path} (Manual implementation recommended for safety)`);
+      }
+    }
   }
 
   const handleAbort = async () => {
@@ -195,7 +232,8 @@ export default function AIPanel({
       await updateJobStatus({
         fileId,
         sessionId,
-        status: "cancelled"
+        status: "cancelled",
+        userId: user?.firebaseUid
       })
 
       await fetch(
@@ -267,7 +305,7 @@ export default function AIPanel({
               <span className="tracking-wide">AI Agent is thinking...</span>
             </div>
             <div className="h-[2px] w-full bg-zinc-900 overflow-hidden rounded-full">
-              <motion.div 
+              <motion.div
                 className="h-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]"
                 animate={{ x: ["-100%", "100%"] }}
                 transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
