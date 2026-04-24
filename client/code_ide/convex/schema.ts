@@ -16,6 +16,7 @@ export default defineSchema({
     isPublic: v.boolean(),
     isStarred: v.optional(v.boolean()),
     prompt: v.optional(v.string()),
+    updatedAt: v.optional(v.number()),
     buildState: v.optional(
       v.union(
         v.literal("idle"),
@@ -35,9 +36,12 @@ export default defineSchema({
     parentId: v.optional(v.id("files")),
     userId: v.optional(v.string()),
     requestId: v.optional(v.string()),
+    updatedAt: v.optional(v.number()),
+    storageId:v.optional(v.id("_storage"))
   })
     .index("by_projectId", ["projectId"])
-    .index("by_parentId", ["parentId"]),
+    .index("by_parentId", ["parentId"])
+    .index("by_project_parentId", ["projectId", "parentId"]),
 
   liveFiles: defineTable({
     fileId: v.string(),

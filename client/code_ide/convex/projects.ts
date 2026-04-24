@@ -5,19 +5,24 @@ export const createProject = mutation({
   args: {
     title: v.string(),
     language: v.string(),
-    userId: v.id("users"),
+    userId: v.string(),
     isPublic: v.boolean(),
-    prompt: v.optional(v.string())
+    prompt: v.optional(v.string()),
+    updatedAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    const userId = await resolveUser(ctx, args.userId);
+    if (!userId) throw new Error("User not found");
+
     return await ctx.db.insert("projects", {
       title: args.title,
       language: args.language,
-      userId: args.userId,
+      userId: userId,
       isPublic: args.isPublic,
       isStarred: false,
       prompt: args.prompt,
       buildState: "idle",
+      updatedAt: Date.now(),
     });
   },
 });
