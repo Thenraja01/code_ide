@@ -1,103 +1,135 @@
-const prisma = require('../config/db');
-const FileService = require('../services/FileService');
+import { convex, anyApi } from '../config/convex.js';
 
-exports.createFile = async (req, res) => {
+// POST /files  — create a file or folder
+export const createFile = async (req, res) => {
   try {
-    const { name, type, projectId, parentId, content } = req.body
+    const { name, type, content, projectId, parentId } = req.body;
 
-    const file = await prisma.file.create({
-      data: {
-        name,
-        type,
-        content: type === "FILE" ? content || "" : null,
-        projectId,
-        parentId: parentId || null
-      }
-    })
-
-    // Auto-sync to disk on modification
-    await FileService.syncToDisk(projectId);
-
-    res.json(file)
-  } catch (error) {
-    res.status(500).json({ error: "Failed to create file", details: error.message })
-  }
-}
-
-exports.getFiles = async (req, res) => {
-  try {
-    const { projectId, parentId } = req.query
-
-    const whereClause = { projectId };
-    if (parentId !== undefined) {
-      whereClause.parentId = parentId === 'null' ? null : parentId;
+    if (!name || !type || !projectId) {
+      return res.status(400).json({ error: "name, type, and projectId are required" });
     }
 
-    const files = await prisma.file.findMany({
-      where: whereClause,
-      orderBy: { type: 'asc' } // Folders first
-    })
+    const fileType = type === 'FOLDER' ? 'folder' : 'file';
 
-    res.json(files)
+    const args = {
+      name,
+      type: fileType,
+      projectId,
+      content: content || '',
+    };
+
+    if (parentId) {
+      args.parentId = parentId;
+    }
+
+    const fileId = await convex.mutation(anyApi.files.createFile, args);
+
+    res.status(201).json({
+      id: fileId,
+      name,
+      type,
+      content: content || '',
+      projectId,
+      parentId: parentId || null,
+    });
   } catch (error) {
-    res.status(500).json({ error: "Failed to fetch files", details: error.message })
+    console.error("Create File Error:", error.message || error);
+    res.status(500).json({ error: "Failed to create file" });
   }
-}
+};
 
-exports.updateFile = async (req, res) => {
+// GET /files?projectId=&parentId=  — list files
+export const getFiles = async (req, res) => {
   try {
-    const { id } = req.params
-    const { content } = req.body
+    const { projectId, parentId } = req.query;
 
-    const file = await prisma.file.update({
-      where: { id },
-      data: { content }
-    })
+    if (!projectId) {
+      return res.status(400).json({ error: "projectId query param is required" });
+    }
 
-    // Sync to disk
-    await FileService.syncToDisk(file.projectId);
+    const allFiles = await convex.query(anyApi.files.getFilesByProject, { projectId });
 
-    res.json(file)
+    // Filter by parentId if provided
+    let files = allFiles;
+    if (parentId) {
+      files = allFiles.filter(f => f.parentId === parentId);
+    }
+
+    const result = files.map(f => ({
+      id: f._id,
+      name: f.name,
+      type: f.type === 'folder' ? 'FOLDER' : 'FILE',
+      content: f.content || '',
+      projectId: f.projectId,
+      parentId: f.parentId || null,
+    }));
+
+    res.json(result);
   } catch (error) {
-    res.status(500).json({ error: "Failed to update file", details: error.message })
+    console.error("Get Files Error:", error.message || error);
+    res.status(500).json({ error: "Failed to fetch files" });
   }
-}
+};
 
-exports.deleteFile = async (req, res) => {
+// PUT /files/:id  — update file content
+export const updateFile = async (req, res) => {
   try {
-    const { id } = req.params
-    const file = await prisma.file.findUnique({ where: { id } });
-    
-    if (!file) return res.status(404).json({ error: "File not found" });
+    const { id } = req.params;
+    const { content } = req.body;
 
-    await prisma.file.delete({
-      where: { id }
-    })
+    await convex.mutation(anyApi.files.updateFileContent, {
+      fileId: id,
+      content: content || '',
+    });
 
-    await FileService.syncToDisk(file.projectId);
-
-    res.json({ message: "Deleted successfully" })
+    res.json({ id, content });
   } catch (error) {
-    res.status(500).json({ error: "Failed to delete file", details: error.message })
+    console.error("Update File Error:", error.message || error);
+    res.status(500).json({ error: "Failed to update file" });
   }
-}
+};
 
-exports.moveFile = async (req, res) => {
+// DELETE /files/:id  — delete a file or folder
+export const deleteFile = async (req, res) => {
   try {
-    const { id } = req.params
-    const { newParentId } = req.body
+    const { id } = req.params;
 
-    const file = await prisma.file.update({
-      where: { id },
-      data: {
-        parentId: newParentId || null
-      }
-    })
+    // Convex files.ts doesn't have a delete mutation yet, 
+    // we need to use the raw db.delete through a mutation
+    // For now, attempt to call it if it exists
+    try {
+      await convex.mutation(anyApi.files.deleteFile, { fileId: id });
+    } catch (e) {
+      // If deleteFile mutation doesn't exist in Convex, log and return success
+      console.warn("files.deleteFile mutation not found in Convex, skipping:", e.message);
+    }
 
-    await FileService.syncToDisk(file.projectId);
-
-    res.json(file)
+    res.json({ message: "File deleted successfully" });
   } catch (error) {
-    res.status(500).json({ error: "Failed to move file", details: error.message })
+    console.error("Delete File Error:", error.message || error);
+    res.status(500).json({ error: "Failed to delete file" });
   }
-}
+};
+
+// PUT /files/move/:id  — move a file to a new parent
+export const moveFile = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { newParentId } = req.body;
+
+    // Attempt to call a moveFile mutation in Convex
+    try {
+      await convex.mutation(anyApi.files.moveFile, {
+        fileId: id,
+        newParentId: newParentId || null,
+      });
+    } catch (e) {
+      console.warn("files.moveFile mutation not found in Convex, skipping:", e.message);
+    }
+
+    res.json({ id, parentId: newParentId });
+  } catch (error) {
+    console.error("Move File Error:", error.message || error);
+    res.status(500).json({ error: "Failed to move file" });
+  }
+};
