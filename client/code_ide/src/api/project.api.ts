@@ -16,6 +16,16 @@ export const getProjects = async (): Promise<ProjectData[]> => {
   return res.data;
 };
 
+export const getProjectsPartial = async (limit:number  =10,page:number=1): Promise<ProjectData[]> => {
+  const res = await api.get(`/projects?limit=${limit}&page=${page}`);
+  return res.data;
+};
+
+export const getProjectbyid = async (id: string): Promise<ProjectData> => {
+  const res = await api.get(`/projects/${id}`);
+  return res.data;
+};
+
 export const createProject = async (data: { title?: string; description?: string; language?: string; }): Promise<ProjectData> => {
   const res = await api.post("/projects", data);
   return res.data;

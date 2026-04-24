@@ -1,0 +1,14 @@
+{
+  "name": "code-ide-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "install:all": "npm install --prefix client/code_ide && npm install --prefix backend",
+    "dev:client": "npm run dev --prefix client/code_ide",
+    "dev:backend": "npm run dev --prefix backend",
+    "dev": "concurrently -k -n CLIENT,BACKEND -c \"bgBlue.bold,bgMagenta.bold\" \"npm run dev:client\" \"npm run dev:backend\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

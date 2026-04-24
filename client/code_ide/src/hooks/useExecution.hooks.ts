@@ -14,6 +14,15 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+export const useRunCodeMutation = () => {
+  return useMutation({
+    mutationFn: async ({ language, code }: { language: string; code: string }) => {
+      const { data } = await api.post('/execute/run', { language, code });
+      return data;
+    },
+  });
+};
+
 export const useCommandMutation = () => {
   return useMutation({
     mutationFn: async ({ projectId, command }: { projectId: string; command: string }) => {

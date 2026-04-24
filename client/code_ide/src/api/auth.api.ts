@@ -45,6 +45,13 @@ export const googleAuth = async (
   return res.data;
 };
 
+export const githubAuth = async (
+  data: { idToken: string }
+): Promise<AuthResponse> => {
+  const res = await api.post("/auth/github", data);
+  return res.data;
+};
+
 export const getUsers = async (): Promise<User[]> => {
   const res = await api.get("/auth/users");
   return res.data;

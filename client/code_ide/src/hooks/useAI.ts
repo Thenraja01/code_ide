@@ -1,26 +1,23 @@
 import { useMutation } from '@tanstack/react-query';
-import axios from 'axios';
-
-const AI_API_URL = 'http://localhost:8000'; // Default FastAPI port
+import api from '@/api/axios';
 
 interface AIRequest {
   code: string;
   action: string;
+  fileId?: string;
+  sessionId?: string;
 }
 
 interface AIResponse {
-  response?: string;
+  status: string;
   error?: string;
 }
 
 export const useAI = () => {
   return useMutation({
     mutationFn: async (data: AIRequest) => {
-      const response = await axios.post<AIResponse>(`${AI_API_URL}/ai/code`, data);
-      if (response.data.error) {
-        throw new Error(response.data.error);
-      }
-      return response.data.response;
+      const response = await api.post<AIResponse>('/ai/analyze', data);
+      return response.data;
     },
   });
 };
