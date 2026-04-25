@@ -6,7 +6,8 @@
     "install:all": "npm install --prefix client/code_ide && npm install --prefix backend",
     "dev:client": "npm run dev --prefix client/code_ide",
     "dev:backend": "npm run dev --prefix backend",
-    "dev": "concurrently -k -n CLIENT,BACKEND -c \"bgBlue.bold,bgMagenta.bold\" \"npm run dev:client\" \"npm run dev:backend\""
+    "dev:inngest": "npx inngest-cli@latest dev",
+    "dev": "concurrently -k -n CLIENT,BACKEND,INNGEST -c \"bgBlue.bold,bgMagenta.bold,bgGreen.bold\" \"npm run dev:client\" \"npm run dev:backend\" \"npm run dev:inngest\""
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
