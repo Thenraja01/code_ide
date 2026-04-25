@@ -16,6 +16,7 @@ import fileRoutes from './src/Router/file.route.js';
 import githubRoutes from './src/Router/github.route.js';
 import userRoutes from './src/Router/user.route.js';
 import statsRoutes from './src/Router/stats.route.js';
+import executeRoutes from './src/Router/execute.route.js';
 import authMiddleware from './src/middlewares/auth.middleware.js';
 
 import { serve } from "inngest/express";
@@ -46,6 +47,7 @@ app.use('/api/files', fileRoutes);
 app.use('/api/github', githubRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/stats', statsRoutes);
+app.use('/api/execute', executeRoutes);
 app.use('/api/inngest', serve({ client: inngest, functions }));
 
 // Sentry Error Handler

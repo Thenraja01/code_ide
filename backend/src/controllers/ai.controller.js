@@ -115,4 +115,55 @@ const runAgent = async (req, res) => {
   }
 };
 
-export default { askAi, Aimodelcreater, generateCode, autocompleteCode, runAgent };
+const chatWithAi = async (req, res) => {
+  try {
+    const { messages, sessionId } = req.body;
+    if (!messages || !Array.isArray(messages) || messages.length === 0) {
+      return res.status(400).json({ error: 'messages array is required' });
+    }
+
+    const sid = sessionId || crypto.randomUUID();
+
+    // Pass full history for multi-turn context
+    // AiModelcreate.askCodeAssistant takes a prompt string, so we pass
+    // the full conversation as a serialised context string
+    const historyContext = messages
+      .slice(0, -1) // all but last
+      .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
+      .join('\n');
+
+    const lastUser = [...messages].reverse().find(m => m.role === 'user');
+    if (!lastUser) return res.status(400).json({ error: 'No user message found' });
+
+    const promptWithHistory = historyContext
+      ? `Previous conversation:\n${historyContext}\n\nUser: ${lastUser.content}`
+      : lastUser.content;
+
+    const response = await AiModelcreate.askCodeAssistant('CHAT', promptWithHistory, sid, null);
+
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+
+    if (!response || !response.data) {
+      res.write('data: [DONE]\n\n');
+      return res.end();
+    }
+
+    response.data.on('data', chunk => res.write(chunk));
+    response.data.on('end', () => res.end());
+    response.data.on('error', err => {
+      console.error('Stream error:', err.message);
+      res.end();
+    });
+
+  } catch (error) {
+    console.error('chatWithAi Error:', error.message);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Chat AI failed' });
+    }
+  }
+};
+
+export default { askAi, Aimodelcreater, generateCode, autocompleteCode, runAgent, chatWithAi };

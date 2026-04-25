@@ -11,6 +11,7 @@ router.post('/code', authMiddleware, aiController.askAi);
 router.post('/generate', authMiddleware, aiController.generateCode);
 router.post('/autocomplete', authMiddleware, aiController.autocompleteCode);
 router.post('/agent', authMiddleware, aiController.runAgent);
+router.post('/chat', authMiddleware, aiController.chatWithAi);
 
 router.post('/extract', authMiddleware, async (req, res) => {
   try {
@@ -25,11 +26,29 @@ router.post('/extract', authMiddleware, async (req, res) => {
 router.post('/project.create', authMiddleware, async (req, res) => {
   try {
     const { projectId, prompt, language } = req.body;
-    await inngest.send({ name: "project.create", data: { projectId, prompt, language } });
+    console.log(`[AI Route] Starting project orchestration for ID: ${projectId}`);
+    
+    if (!projectId) {
+      return res.status(400).json({ error: "Missing projectId" });
+    }
+
+    await inngest.send({ 
+      name: "project.create", 
+      data: { projectId, prompt, language } 
+    });
+
     res.json({ status: "Project Orchestration started" });
   } catch (err) {
-    console.error("Inngest Send Error:", err.message);
-    res.status(500).json({ error: "Failed to start project orchestration. Ensure Inngest dev server is running." });
+    console.error("Inngest Send Error Details:", {
+      message: err.message,
+      stack: err.stack,
+      projectId: req.body.projectId
+    });
+    res.status(500).json({ 
+      error: "Failed to start project orchestration.",
+      details: err.message,
+      hint: "Ensure Inngest dev server is running (npx inngest-cli@latest dev)"
+    });
   }
 });
 
