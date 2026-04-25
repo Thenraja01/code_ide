@@ -16,37 +16,45 @@ type AuthContextType = {
   user: User;
   setUser: Dispatch<SetStateAction<User>>;
   logout: () => Promise<void>;
+  isLoading: boolean;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User>(null);
-  const syncUser = useMutation(api.users.syncUser); // Requires convex/_generated/api
+  const [isLoading, setIsLoading] = useState(true);
+  const syncUser = useMutation(api.users.syncUser);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        // Sync user to Convex on auth state change
-        const convexUserId = await syncUser({
-          email: firebaseUser.email || "",
-          firebaseUid: firebaseUser.uid,
-          name: firebaseUser.displayName || "",
-          avatar: firebaseUser.photoURL || "",
-        });
+      try {
+        if (firebaseUser) {
+          const convexUserId = await syncUser({
+            email: firebaseUser.email || "",
+            firebaseUid: firebaseUser.uid,
+            name: firebaseUser.displayName || "",
+            avatar: firebaseUser.photoURL || "",
+          });
 
-        const token = await firebaseUser.getIdToken();
-        localStorage.setItem('token', token);
+          const token = await firebaseUser.getIdToken();
+          localStorage.setItem('token', token);
 
-        setUser({
-          id: convexUserId || '',
-          name: firebaseUser.displayName || "",
-          email: firebaseUser.email || "",
-          avatar: firebaseUser.photoURL || "",
-          firebaseUid: firebaseUser.uid,
-        });
-      } else {
-        setUser(null);
+          setUser({
+            id: convexUserId || '',
+            name: firebaseUser.displayName || "",
+            email: firebaseUser.email || "",
+            avatar: firebaseUser.photoURL || "",
+            firebaseUid: firebaseUser.uid,
+          });
+        } else {
+          setUser(null);
+          localStorage.removeItem('token');
+        }
+      } catch (error) {
+        console.error("Auth sync error:", error);
+      } finally {
+        setIsLoading(false);
       }
     });
 
@@ -64,8 +72,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, setUser, logout }}>
-      {children}
+    <AuthContext.Provider value={{ user, setUser, logout, isLoading }}>
+      {!isLoading && children}
     </AuthContext.Provider>
   );
 }

@@ -73,8 +73,9 @@ export default function ProjectTable() {
         }, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
-      } catch (err) {
+      } catch (err: any) {
         console.warn("AI generation failed to start:", err);
+        toast.error(err.response?.data?.error || "AI generation failed to start. Check server logs.");
       }
 
       setNewProjectName("");
@@ -259,9 +260,14 @@ export default function ProjectTable() {
                   onChange={(e) => setProjectLanguage(e.target.value)}
                 >
                   <option value="react">React (Vite)</option>
-                  <option value="python">Python 3</option>
-                  <option value="node">Node.js</option>
                   <option value="nextjs">Next.js</option>
+                  <option value="node">Node.js</option>
+                  <option value="python">Python 3</option>
+                  <option value="java">Java</option>
+                  <option value="c">C</option>
+                  <option value="cpp">C++</option>
+                  <option value="go">Go</option>
+                  <option value="rust">Rust</option>
                 </select>
               </div>
 

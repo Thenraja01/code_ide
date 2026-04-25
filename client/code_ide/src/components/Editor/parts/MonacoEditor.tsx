@@ -58,8 +58,9 @@ export default function MonacoEditor({
             }
 
             try {
+              const baseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api/').replace(/\/$/, '');
               const response = await axios.post(
-                `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api/ai/autocomplete`,
+                `${baseUrl}/ai/autocomplete`,
                 {
                   prompt: textUntilPosition,
                   language: language

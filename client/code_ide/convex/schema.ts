@@ -3,11 +3,36 @@ import { v } from "convex/values";
 
 export default defineSchema({
   users: defineTable({
+    // Core identity
     name: v.optional(v.string()),
     email: v.string(),
     avatar: v.optional(v.string()),
+    bio: v.optional(v.string()),
     firebaseUid: v.string(),
-  }).index("by_firebaseUid", ["firebaseUid"]),
+
+    // Email verification
+    emailVerified: v.optional(v.boolean()),
+    pendingOtp: v.optional(v.string()),
+    otpExpiresAt: v.optional(v.number()),
+
+    // Linked providers (so one user can attach GitHub + Google + Email)
+    linkedProviders: v.optional(v.array(v.string())),
+
+    // GitHub
+    githubId: v.optional(v.string()),
+    githubUsername: v.optional(v.string()),
+    githubAccessToken: v.optional(v.string()),
+
+    // Google
+    googleId: v.optional(v.string()),
+
+    // Timestamps
+    createdAt: v.optional(v.number()),
+    updatedAt: v.optional(v.number()),
+  })
+    .index("by_firebaseUid", ["firebaseUid"])
+    .index("by_email", ["email"])
+    .index("by_githubId", ["githubId"]),
 
   projects: defineTable({
     title: v.string(),

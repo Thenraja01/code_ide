@@ -1,5 +1,5 @@
-import { useMutation } from '@tanstack/react-query';
-import { createRepository, pushToGithub } from '@/api/github.api';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { createRepository, pushToGithub, cloneFromGithub } from '@/api/github.api';
 import { toast } from 'sonner';
 
 export const useCreateRepoMutation = () => {
@@ -22,6 +22,21 @@ export const usePushToGithubMutation = () => {
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.error || 'Failed to push to GitHub');
+    },
+  });
+};
+
+export const useCloneFromGithubMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: cloneFromGithub,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      toast.success(`Repository "${data?.title || 'project'}" cloned successfully!`);
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error || 'Failed to clone repository');
     },
   });
 };

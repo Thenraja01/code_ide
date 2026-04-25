@@ -7,18 +7,17 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { User } from "lucide-react";
 import { useMeQuery } from "@/hooks/useAuth.hooks";
-import { useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/context/AuthContext";
 import { LogOut } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 export default function UserMenu() {
-  const handleNavigate = useNavigate();
   const { data: user } = useMeQuery();
-  const queryClient = useQueryClient();
+  const { logout } = useAuth();
+  const handleNavigate = useNavigate();
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    queryClient.clear();
-    handleNavigate("login");
+  const handleLogout = async () => {
+    await logout();
+    handleNavigate("/login");
   };
 
   return (

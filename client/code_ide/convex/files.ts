@@ -116,6 +116,7 @@ export const createFile = mutation({
     projectId: v.id("projects"),
     parentId: v.optional(v.id("files")),
     content: v.optional(v.string()),
+    type: v.optional(v.union(v.literal("file"), v.literal("folder"))),
     userId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -136,7 +137,7 @@ export const createFile = mutation({
       projectId: args.projectId,
       parentId: args.parentId,
       name: args.name,
-      type: "file",
+      type: args.type ?? "file",
       content: args.content ?? "",
       updatedAt: Date.now(),
     });

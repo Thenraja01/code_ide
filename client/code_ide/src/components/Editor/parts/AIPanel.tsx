@@ -1,4 +1,3 @@
-'use client'
 
 import { useState, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -6,8 +5,7 @@ import { X, Sparkles, Loader2, Play, Zap } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import axios from 'axios'
 import { useQuery, useMutation } from 'convex/react'
-import { api } from "../../../../convex/_generated/api"
-import * as Sentry from '@sentry/react'
+import { api } from "@convex/_generated/api"
 import { toast } from 'sonner'
 import { useAuth } from '@/context/AuthContext'
 
@@ -37,17 +35,18 @@ export default function AIPanel({
 
   const createFile = useMutation(api.files.createFile)
   const updateFileContent = useMutation(api.files.updateFileContent)
+  const deleteFile = useMutation(api.files.deleteFile)
 
 
-  // ---------------- CONVEX ----------------
   const chunks = useQuery(api.aiStreams.getChunks, {
     fileId: fileId || "none",
     sessionId: sessionId || "none"
   })
 
-  const projectFiles = useQuery(api.files.getFilesByProject, {
-    projectId: projectId as any
-  })
+  const projectFiles = useQuery(
+    api.files.getFilesByProject,
+    projectId ? { projectId: projectId as any } : 'skip'
+  )
 
   const jobStatus = useQuery(api.jobStatus.getStatus, {
     fileId: fileId || "none",
@@ -56,13 +55,11 @@ export default function AIPanel({
 
   const updateJobStatus = useMutation(api.jobStatus.updateStatus)
 
-  // ---------------- STREAM BUFFER (CURSOR STYLE) ----------------
   const aiOutputBuffer = useMemo(() => {
     if (!chunks?.length) return ''
     return chunks.map((c: any) => c.chunk).join('')
   }, [chunks])
 
-  // ---------------- SEND ----------------
   const handleGenerate = async () => {
     if (!input.trim() || !fileId || !sessionId) return;
 
@@ -71,13 +68,14 @@ export default function AIPanel({
     setInput('');
 
     try {
+      const baseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api/').replace(/\/$/, '');
       await updateJobStatus({ fileId, sessionId, status: "generating", userId: user?.firebaseUid });
 
-      await axios.post(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api/ai/generate`, {
+      await axios.post(`${baseUrl}/ai/generate`, {
         prompt: currentInput,
         fileId: fileId,
         sessionId: sessionId,
-        language: "javascript" // Can be dynamic
+        language: "javascript" 
       }, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
@@ -105,7 +103,8 @@ export default function AIPanel({
       await updateJobStatus({ fileId, sessionId, status: "running", userId: user?.firebaseUid })
       setIsThinking(true)
 
-      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api/ai/agent`, {
+      const baseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api/').replace(/\/$/, '');
+      const response = await fetch(`${baseUrl}/ai/agent`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -151,7 +150,7 @@ export default function AIPanel({
       applyFileOperations(fullContent);
 
     } catch (error: any) {
-      Sentry.captureException(error)
+      console.error('Agent error:', error)
 
       setMessages(prev => [
         ...prev,
@@ -211,16 +210,19 @@ export default function AIPanel({
       }
     }
 
-    // 3. Parse DELETE_FILE
     const deleteMatches = content.matchAll(/DELETE_FILE: ([\w\/\.-]+)/g);
     for (const match of deleteMatches) {
       const [_, path] = match;
       const fileName = path.split('/').pop();
       const file = projectFiles?.find((f: any) => f.name === fileName);
       if (file) {
-        // Assuming we have a deleteFile mutation
-        // await deleteFile({ fileId: file._id });
-        toast.warning(`Deletion requested for ${path} (Manual implementation recommended for safety)`);
+        try {
+          await deleteFile({ fileId: file._id, userId: user?.firebaseUid });
+          toast.warning(`Deleted file: ${path}`);
+        } catch (e) {
+          console.error("Delete error:", e);
+          toast.error(`Failed to delete ${path}`);
+        }
       }
     }
   }
@@ -236,8 +238,9 @@ export default function AIPanel({
         userId: user?.firebaseUid
       })
 
+      const baseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api/').replace(/\/$/, '');
       await fetch(
-        `${import.meta.env.VITE_API_BASE_URL}/ai/abort`,
+        `${baseUrl}/ai/abort`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -248,7 +251,7 @@ export default function AIPanel({
       toast.info("AI stopped")
 
     } catch (e) {
-      Sentry.captureException(e)
+      console.error('Abort error:', e)
     }
   }
 

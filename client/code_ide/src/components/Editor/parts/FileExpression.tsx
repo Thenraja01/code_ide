@@ -9,12 +9,7 @@ import CreateFile from "./Create-file"
 import { useAuth } from "@/context/AuthContext"
 import { FileIcon, FolderIcon } from "@react-symbols/icons/utils"
 
-interface FileTreeItem {
-    _id: Id<"files">
-    name: string
-    type: "file" | "folder"
-    parentId?: Id<"files">
-}
+
 
 interface FileTreeProps {
     files: any[]
