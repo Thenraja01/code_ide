@@ -1,7 +1,7 @@
 import axios from 'axios';
 import crypto from 'crypto';
 
-const AI21_API_KEY = process.env.AI21_API_KEY;
+// API Keys are looked up inside methods to ensure they are available after dotenv loads.
 const BASE_URL = "https://api.ai21.com/studio/v1";
 
 // Mapping to track active AI jobs for cancellation
@@ -94,7 +94,7 @@ class AiService {
     }
 
     const data = {
-      model: "jamba-mini",
+      model: "jamba-1.5-mini",
       messages: [
         { role: "system", content: CODE_SYSTEM_PROMPT },
         { role: "user", content: userPrompt }
@@ -106,7 +106,7 @@ class AiService {
     try {
       const response = await axios.post(`${BASE_URL}/chat/completions`, data, {
         headers: { 
-          'Authorization': `Bearer ${AI21_API_KEY}`, 
+          'Authorization': `Bearer ${process.env.AI21_API_KEY}`, 
           'Content-Type': 'application/json' 
         },
         signal: cancelToken
@@ -118,7 +118,31 @@ class AiService {
         console.log(`AI Job ${sessionId} cancelled.`);
         return null;
       }
-      console.error("AI21 Error:", error.response?.data || error.message);
+      
+      // FALLBACK TO HUGGING FACE IF AI21 FAILS (set HF_TOKEN in .env)
+      const HF_TOKEN = process.env.HF_TOKEN;
+      if (HF_TOKEN) {
+        console.warn("AI21 Failed, attempting HuggingFace fallback...");
+        try {
+          const hfResponse = await axios.post(
+            'https://api-inference.huggingface.co/models/HuggingFaceH4/zephyr-7b-beta',
+            { 
+              inputs: `<|system|>\n${CODE_SYSTEM_PROMPT}\n<|user|>\n${userPrompt}\n<|assistant|>\n`,
+              parameters: { max_new_tokens: 1024, temperature: 0.2 }
+            },
+            { headers: { 'Authorization': `Bearer ${HF_TOKEN}` } }
+          );
+          
+          if (Array.isArray(hfResponse.data) && hfResponse.data[0]?.generated_text) {
+             const text = hfResponse.data[0].generated_text;
+             return text.split('<|assistant|>').pop().trim();
+          }
+        } catch (hfError) {
+          console.error("HuggingFace Fallback also failed:", hfError.message);
+        }
+      }
+
+      console.error(`AI21 ${error.response?.status} Error:`, error.response?.data);
       throw new Error(error.response?.data?.message || "AI assistant service is currently unavailable");
     } finally {
       if (sessionId && abortControllers.get(sessionId) === controller) {
@@ -161,6 +185,11 @@ GUIDELINES:
 - For full-stack apps, ensure you generate both backend and frontend components if necessary.
 `;
 
+const CHAT_SYSTEM_PROMPT = `You are CodeSphere AI, an expert AI assistant built into CodeSphere IDE.
+Help developers with coding questions, architecture decisions, debugging, and general knowledge.
+Be concise, accurate, and friendly. Use markdown formatting and wrap code in fenced code blocks with the language name.
+Never refuse to help with legitimate programming topics.`;
+
 class AiModelcreate {
   static async askCodeAssistant(action, prompt, sessionId, context) {
     if (!action || !prompt) throw new Error("Prompt required");
@@ -175,9 +204,16 @@ class AiModelcreate {
     }
 
     const data = {
-      model: "jamba-mini",
+      model: "jamba-1.5-mini",
       messages: [
-        { role: "system", content: action === "AGENT" ? AGENT_SYSTEM_PROMPT : CODE_SYSTEM_PROMPT_MODELCREATE },
+        {
+          role: "system",
+          content: action === "AGENT"
+            ? AGENT_SYSTEM_PROMPT
+            : action === "CHAT"
+              ? CHAT_SYSTEM_PROMPT
+              : CODE_SYSTEM_PROMPT_MODELCREATE
+        },
         { 
           role: "user", 
           content: context 
@@ -192,7 +228,7 @@ class AiModelcreate {
 
     try {
       const response = await axios.post(`${BASE_URL}/chat/completions`, data, {
-        headers: { 'Authorization': `Bearer ${AI21_API_KEY}`, 'Content-Type': 'application/json' },
+        headers: { 'Authorization': `Bearer ${process.env.AI21_API_KEY}`, 'Content-Type': 'application/json' },
         responseType: "stream",
         signal: cancelToken
       });
@@ -202,8 +238,52 @@ class AiModelcreate {
         console.log(`AI Stream ${sessionId} cancelled.`);
         return null;
       }
-      console.error("AI21 Error:", error.response?.data || error.message);
-      throw new Error(error.response?.data?.message || "AI assistant service is currently unavailable");
+      
+      console.error(`AI21 Stream ${error.response?.status} Error:`, error.response?.data);
+
+      // FALLBACK TO HUGGING FACE (Non-streaming) (set HF_TOKEN in .env)
+      const HF_TOKEN = process.env.HF_TOKEN;
+      if (HF_TOKEN) {
+        console.warn("AI21 Stream Failed, attempting HuggingFace non-streaming fallback...");
+        try {
+          const hfResponse = await axios.post(
+            'https://api-inference.huggingface.co/models/HuggingFaceH4/zephyr-7b-beta',
+            { 
+              inputs: `<|system|>\n${action === "AGENT" ? AGENT_SYSTEM_PROMPT : CODE_SYSTEM_PROMPT_MODELCREATE}\n<|user|>\n${prompt}\n<|assistant|>\n`,
+              parameters: { max_new_tokens: 1024, temperature: 0.2 }
+            },
+            { headers: { 'Authorization': `Bearer ${HF_TOKEN}` } }
+          );
+          
+          if (Array.isArray(hfResponse.data) && hfResponse.data[0]?.generated_text) {
+             const text = hfResponse.data[0].generated_text;
+             const content = text.split('<|assistant|>').pop().trim();
+             
+             // Wrap in a fake stream-like response for the controller
+             return {
+                 data: {
+                     on: (event, callback) => {
+                         if (event === 'data') {
+                             const chunk = JSON.stringify({
+                                 choices: [{ delta: { content } }]
+                             });
+                             callback(`data: ${chunk}\n\n`);
+                             callback(`data: [DONE]\n\n`);
+                         }
+                         if (event === 'end') {
+                             // Trigger end after data has been sent
+                             setTimeout(callback, 0);
+                         }
+                     }
+                 }
+             };
+          }
+        } catch (hfError) {
+          console.error("HuggingFace Fallback also failed:", hfError.message);
+        }
+      }
+
+      throw new Error(error.response?.data?.message || "AI agent service is currently unavailable");
     }
   }
 }
