@@ -14,6 +14,12 @@ export interface GithubPushData {
   projectId: string;
 }
 
+export interface CloneFromGithubData {
+  repoUrl: string;
+  projectName: string;
+  userId: string;
+}
+
 export const createRepository = async (data: GithubRepoData) => {
   const res = await api.post("/github/repo", data);
   return res.data;
@@ -21,5 +27,10 @@ export const createRepository = async (data: GithubRepoData) => {
 
 export const pushToGithub = async (data: GithubPushData) => {
   const res = await api.post("/github/push", data);
+  return res.data;
+};
+
+export const cloneFromGithub = async (data: CloneFromGithubData) => {
+  const res = await api.post("/github/clone", data);
   return res.data;
 };

@@ -14,7 +14,7 @@ export default function DashBoardLayout(): JSX.Element {
       {/* Content area: sidebar + page */}
       <div className="flex flex-1 overflow-hidden">
         <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-hidden">
           <Outlet />
         </main>
       </div>

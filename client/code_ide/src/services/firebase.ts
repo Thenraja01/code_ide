@@ -1,6 +1,5 @@
-// firebase.ts
 import { initializeApp } from "firebase/app";
-import { getAuth, GithubAuthProvider, GoogleAuthProvider } from "firebase/auth";
+import { getAuth, GithubAuthProvider, GoogleAuthProvider, setPersistence, browserSessionPersistence } from "firebase/auth";
 
 // Firebase config from .env
 const firebaseConfig = {
@@ -17,5 +16,7 @@ const app = initializeApp(firebaseConfig);
 
 // Export auth & provider
 export const auth = getAuth(app);
+setPersistence(auth, browserSessionPersistence);
+
 export const googleProvider = new GoogleAuthProvider();
 export const githubProvider = new GithubAuthProvider();

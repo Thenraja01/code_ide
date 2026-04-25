@@ -1,4 +1,3 @@
-'use client'
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
@@ -6,8 +5,7 @@ import { toast } from 'sonner'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
 import { useQuery, useMutation } from 'convex/react'
 import { api } from "@convex/_generated/api"
-import * as Sentry from '@sentry/react'
-import type { Id } from '../../../convex/_generated/dataModel'
+import type { Id } from '@convex/_generated/dataModel'
 
 import MonacoEditor from './parts/MonacoEditor'
 import StatusBar from './parts/StatusBar'
@@ -19,16 +17,20 @@ import PreviewPanel from '../Preview/PreviewPanel'
 import {
   useCommandMutation,
   useStartPreviewMutation,
-  useStopPreviewMutation
+  useStopPreviewMutation,
+  useRunCodeMutation
 } from '@/hooks/useExecution.hooks'
 
-import { Link, Loader2 } from 'lucide-react'
+import { Link as LinkIcon, Loader2 } from 'lucide-react'
 import { webcontainerService } from '@/services/WebContainerService'
 import { useAuth } from '@/context/AuthContext'
 import Sidebar from './parts/Sidebar'
 import axios from 'axios'
 import { useEditor } from '@/hooks/useEditor'
 import TabStructure from './parts/TabStructure'
+import ExecutionOutput from './parts/ExecutionOutput'
+import CommandPalette from './parts/CommandPalette'
+import { Play, Terminal, Sparkles, FileCode, Zap } from 'lucide-react'
 
 const WEB_FRAMEWORKS = ['react', 'vanilla', 'express', 'fastapi', 'node', 'nextjs']
 
@@ -39,26 +41,26 @@ export default function CodeEditor() {
   const {
     openTab,
     activeTabId,
-    setActiveTab,
     openFile,
-    closeTab
-  } = useEditor(projectId as any)
+  } = useEditor((projectId ?? '') as any)
 
-  // ---------------- Convex ----------------
-  const projectFiles = useQuery(api.files.getFilesByProject, {
-    projectId: projectId as any,
-    userId: user?.firebaseUid
-  })
+  const projectFiles = useQuery(
+    api.files.getFilesByProject,
+    projectId ? { projectId: projectId as any, userId: user?.firebaseUid } : 'skip'
+  )
 
-  const project = useQuery(api.projects.getProjectById, {
-    projectId: projectId as any
-  })
+  const project = useQuery(
+    api.projects.getProjectById,
+    projectId ? { projectId: projectId as any } : 'skip'
+  )
 
   const updateFileContent = useMutation(api.files.updateFileContent)
 
   const { mutate: executeCommand } = useCommandMutation()
   const { mutate: startPreview } = useStartPreviewMutation()
   const { mutate: stopPreview } = useStopPreviewMutation()
+  const { mutate: runCodeMutation, isPending: isRunningCode } = useRunCodeMutation()
+  const [pistonOutput, setPistonOutput] = useState<string | null>(null)
 
   const [sessionId] = useState(() => crypto.randomUUID())
   const [showTerminal, setShowTerminal] = useState(true)
@@ -70,6 +72,19 @@ export default function CodeEditor() {
   const [buffers, setBuffers] = useState<Record<string, string>>({})
   const [injectedUrl, setInjectedUrl] = useState('')
   const [isUrlLoading, setIsUrlLoading] = useState(false)
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false)
+
+  // ---------------- Shortcuts ----------------
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'p') {
+        e.preventDefault()
+        setIsCommandPaletteOpen(true)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
 
   // ---------------- Load Files ----------------
   useEffect(() => {
@@ -124,16 +139,36 @@ export default function CodeEditor() {
           userId: user.firebaseUid
         })
 
+        // Sync to WebContainer
         const wc = await webcontainerService.load()
         await wc.fs.writeFile(activeFile.name, content)
-
       } catch (e) {
-        Sentry.captureException(e)
+        console.error('Auto-save error:', e)
       }
     }, 1000)
 
     return () => clearTimeout(timer)
   }, [buffers, activeTabId, activeFile, user, updateFileContent])
+
+  // ---------------- Sync Project to WebContainer ----------------
+  useEffect(() => {
+    if (!projectFiles?.length) return
+
+    const syncAll = async () => {
+      try {
+        const wc = await webcontainerService.load()
+        for (const file of projectFiles) {
+          if (file.type === 'file') {
+            // Ensure parent directory exists (simplistic for now)
+            await wc.fs.writeFile(file.name, file.content || '')
+          }
+        }
+      } catch (err) {
+        console.error("WebContainer sync error:", err)
+      }
+    }
+    syncAll()
+  }, [projectFiles])
 
   // ---------------- Command ----------------
   const handleCommand = useCallback((command: string) => {
@@ -158,6 +193,7 @@ export default function CodeEditor() {
         setShowPreview(false)
         setPreviewUrl('')
       } else {
+        // Option A: Use backend preview
         startPreview({ projectId, framework: lang }, {
           onSuccess: (data) => {
             setPreviewUrl(data.url)
@@ -165,24 +201,78 @@ export default function CodeEditor() {
             setActiveView('preview')
           }
         })
+
+        // Option B: Also start in WebContainer for Terminal consistency
+        webcontainerService.load().then(async (wc) => {
+            // Check if package.json exists and run install if needed
+            const files = await wc.fs.readdir('.');
+            if (files.includes('package.json')) {
+                const installProcess = await wc.spawn('npm', ['install']);
+                installProcess.output.pipeTo(new WritableStream({
+                    write(data) { console.log(data) }
+                }));
+                await installProcess.exit;
+
+                await wc.spawn('npm', ['run', 'dev']);
+                wc.on('server-ready', (_port, url) => {
+                    setPreviewUrl(url);
+                    setShowPreview(true);
+                    setActiveView('preview');
+                });
+            }
+        });
       }
+    } else if (lang === 'node' || lang === 'javascript') {
+        const fileName = activeFile?.name || 'app.js'
+        toast.info(`Executing ${fileName} via WebContainer...`)
+        setShowTerminal(true)
+        webcontainerService.load().then(async (wc) => {
+            await wc.spawn('node', [fileName]);
+        })
     } else {
       const fileName = activeFile?.name || 'main.py'
-      let cmd = ''
-
-      switch (lang) {
-        case 'python': cmd = `python3 ${fileName}`; break
-        case 'java': cmd = `javac ${fileName} && java ${fileName.split('.')[0]}`; break
-        case 'c': cmd = `gcc ${fileName} -o main && ./main`; break
-        case 'cpp': cmd = `g++ ${fileName} -o main && ./main`; break
-        default: cmd = `echo Running ${fileName}`
+      const pistonLanguages = ['python', 'java', 'c', 'cpp', 'go', 'rust', 'javascript']
+      
+      if (pistonLanguages.includes(lang)) {
+        toast.info(`Executing ${lang} code...`)
+        setPistonOutput(null)
+        setShowTerminal(true)
+        
+        runCodeMutation({
+          language: lang,
+          code: buffers[activeTabId || ''] || ''
+        }, {
+          onSuccess: (data) => {
+            const output = data.run?.output || data.compile?.output || "Execution finished with no output."
+            setPistonOutput(output)
+            toast.success("Run completed")
+          },
+          onError: (err: any) => {
+            toast.error(err.response?.data?.error || "Execution failed")
+          }
+        })
+      } else {
+        let cmd = ''
+        switch (lang) {
+          case 'python': cmd = `python3 ${fileName}`; break
+          case 'java': cmd = `javac ${fileName} && java ${fileName.split('.')[0]}`; break
+          case 'c': cmd = `gcc ${fileName} -o main && ./main`; break
+          case 'cpp': cmd = `g++ ${fileName} -o main && ./main`; break
+          default: cmd = `echo Running ${fileName}`
+        }
+        handleCommand(cmd)
       }
-
-      handleCommand(cmd)
     }
-  }, [projectId, project, showPreview, activeFile, startPreview, stopPreview, handleCommand])
+  }, [projectId, project, showPreview, activeFile, activeTabId, buffers, startPreview, stopPreview, runCodeMutation, handleCommand])
 
-  // ---------------- Language Detection ----------------
+  const commandActions = [
+    { id: 'run', label: 'Run Code / Preview', icon: Play, shortcut: 'F5', action: handleRun },
+    { id: 'terminal', label: 'Toggle Terminal', icon: Terminal, shortcut: 'Ctrl+`', action: () => setShowTerminal(s => !s) },
+    { id: 'ai', label: 'Ask AI Assistant', icon: Sparkles, shortcut: 'Ctrl+L', action: () => setSidebarTab('ai') },
+    { id: 'explorer', label: 'Show Explorer', icon: FileCode, action: () => setSidebarTab('explorer') },
+    { id: 'save', label: 'Save File', icon: Zap, shortcut: 'Ctrl+S', action: () => toast.success('File saved') },
+  ]
+
   const getLanguageFromExtension = (filename: string) => {
     const ext = filename.split('.').pop()?.toLowerCase()
     if (!ext) return 'text'
@@ -224,7 +314,7 @@ export default function CodeEditor() {
 
       {/* URL Context Bar */}
       <div className="bg-zinc-900/50 border-b border-[#222] px-4 py-1.5 flex items-center gap-3">
-        <Link size={14} className="text-zinc-500" />
+        <LinkIcon size={14} className="text-zinc-500" />
         <input
           placeholder="Paste documentation URL for AI context..."
           className="bg-transparent text-xs text-zinc-300 outline-none flex-1"
@@ -239,6 +329,11 @@ export default function CodeEditor() {
                   { url }
                 )
                 setInjectedUrl(res.data.content)
+                try {
+                  await handleRun()
+                } catch (err) {
+                  toast.error('Failed to boot environment')
+                }
                 toast.success('Context injected')
               } catch {
                 toast.error('Failed to extract')
@@ -306,11 +401,22 @@ export default function CodeEditor() {
                   )}
                 </Panel>
 
+
                 {showTerminal && (
                   <>
                     <PanelResizeHandle className="h-[1px] bg-[#222]" />
                     <Panel defaultSize={30}>
-                      <TerminalPanel projectId={projectId || ''} />
+                      <div className="h-full w-full bg-[#0c0c0c] relative">
+                        {pistonOutput !== null || isRunningCode ? (
+                          <ExecutionOutput 
+                            output={pistonOutput} 
+                            isRunning={isRunningCode} 
+                            onClear={() => setPistonOutput(null)} 
+                          />
+                        ) : (
+                          <TerminalPanel projectId={projectId || ''} />
+                        )}
+                      </div>
                     </Panel>
                   </>
                 )}
@@ -322,11 +428,17 @@ export default function CodeEditor() {
         </PanelGroup>
       </div>
 
-      {/* ✅ FIXED HERE */}
+
       <StatusBar
         language={activeFile?.name || 'text'}
         lineCount={(buffers[activeTabId || ''] || '').split('\n').length}
         onToggleTerminal={() => setShowTerminal(s => !s)}
+      />
+
+      <CommandPalette 
+        isOpen={isCommandPaletteOpen} 
+        onClose={() => setIsCommandPaletteOpen(false)} 
+        actions={commandActions}
       />
     </div>
   )

@@ -11,7 +11,10 @@ interface TabStructureProps {
 
 export default function TabStructure({ projectId }: TabStructureProps) {
   const { openTab, activeTabId, setActiveTab, closeTab, previewTabId } = useEditor(projectId);
-  const files = useQuery(api.files.getFilesByProject, { projectId });
+  const files = useQuery(
+    api.files.getFilesByProject,
+    projectId ? { projectId } : "skip"
+  );
 
   if (!openTab || openTab.length === 0) return null;
 

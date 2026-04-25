@@ -36,7 +36,7 @@ export default function Home() {
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="p-4 md:p-8 lg:p-12 space-y-8 md:space-y-12 min-h-screen bg-linear-to-b from-[#0a0b1e] to-[#04050c]"
+      className="p-4 md:p-8 lg:p-12 space-y-8 md:space-y-12 h-[100vh] overflow-y-scroll bg-linear-to-b from-[#0a0b1e] to-[#04050c]"
     >
       {/* Hero Welcome Section */}
       <section className="relative overflow-hidden rounded-[2rem] border border-white/5 bg-linear-to-br from-white/10 to-transparent backdrop-blur-3xl p-8 md:p-12 lg:p-16">
@@ -141,8 +141,11 @@ export default function Home() {
                 <p className="text-white font-black text-xl md:text-2xl mb-6 leading-tight">
                   Infinite storage <br />& AI performance.
                 </p>
-                <Button className="w-full bg-white text-indigo-900 hover:bg-white/90 font-black h-12 rounded-2xl transition-transform active:scale-95 shadow-xl">
-                  GO PRO
+                <Button
+                  onClick={() => navigate('/dashboard/ai-chat')}
+                  className="w-full bg-white text-indigo-900 hover:bg-white/90 font-black h-12 rounded-2xl transition-transform active:scale-95 shadow-xl"
+                >
+                  chat with AI
                 </Button>
               </div>
               <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 w-48 h-48 bg-indigo-500/30 blur-[60px] rounded-full" />

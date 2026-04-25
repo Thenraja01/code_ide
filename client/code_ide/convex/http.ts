@@ -22,7 +22,6 @@ http.route({
     await ctx.runMutation(api.files.createFile, {
       projectId: projectId as any,
       name: file.name,
-      type: file.type,
       content: file.content || "",
       parentId: parentId as any
     });
@@ -75,7 +74,7 @@ http.route({
   path: "/update_file_content",
   method: "POST",
   handler: httpAction(async (ctx, request) => {
-    const { fileId, content, userId, requestId } = await request.json();
+    const { fileId, content, userId } = await request.json();
     await ctx.runMutation(api.files.updateFileContent, {
       fileId,
       content,

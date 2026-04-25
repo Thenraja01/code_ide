@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react'
+import { Suspense } from 'react'
 import { Route, Routes } from 'react-router-dom'
 import ProtectedRoute from '@/components/layout/ProtectedRoute'
 import ErrorBoundary from '@/components/Editor/parts/ErrorBoundary'
@@ -11,24 +11,25 @@ import EditorLayout from '@/components/layout/EditorLayout'
 
 // Public
 import Home from '@/pages/Home/Home'
-const Docs = lazy(() => import('@/pages/Docs/Docs'))
+import Docs from '@/pages/Docs/Docs'
 
 // Auth
 import Login from '@/pages/Login/Login'
 import Signup from '@/pages/Login/Signup'
 
 // Dashboard
-const DashHome = lazy(() => import('@/pages/Dashboard/Home'))
-const Todo = lazy(() => import('@/pages/Dashboard/todo/Todo'))
-const Projects = lazy(() => import('@/pages/Dashboard/Projects'))
-const Templates = lazy(() => import('@/pages/Dashboard/Templates'))
-const Starred = lazy(() => import('@/pages/Dashboard/Starred'))
-const Settings = lazy(() => import('@/pages/Dashboard/Settings'))
+import DashHome from '@/pages/Dashboard/Home'
+import Todo from '@/pages/Dashboard/todo/Todo'
+import Projects from '@/pages/Dashboard/Projects'
+import Templates from '@/pages/Dashboard/Templates'
+import Starred from '@/pages/Dashboard/Starred'
+import Settings from '@/pages/Dashboard/Settings'
+import AiChat from '@/pages/Dashboard/AiChat'
 
 // Editor / Rare
-const CodeEditor = lazy(() => import('@/components/Editor/CodeEditor'))
-const ProfilePage = lazy(() => import('@/components/UserProfile/ProfilePage'))
-const NotFound = lazy(() => import('@/pages/NotFound/NotFound'))
+import CodeEditor from '@/components/Editor/CodeEditor'
+import ProfilePage from '@/components/UserProfile/ProfilePage'
+import NotFound from '@/pages/NotFound/NotFound'
 
 export default function BaseRoutes() {
   return (
@@ -75,6 +76,7 @@ export default function BaseRoutes() {
               <Route path="starred" element={<Starred />} />
               <Route path="profile" element={<ProfilePage />} />
               <Route path="settings" element={<Settings />} />
+              <Route path="ai-chat" element={<AiChat />} />
             </Route>
 
             {/* Editor */}
