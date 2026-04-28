@@ -7,6 +7,8 @@ import {
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/context/AuthContext'
 import { toast } from 'sonner'
+import { useQuery, useMutation } from 'convex/react'
+import { api } from '../../../convex/_generated/api'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Message {
@@ -144,9 +146,37 @@ export default function AiChat() {
   const [input, setInput] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
   const [sessionId] = useState(newId)
+  const [historyLoaded, setHistoryLoaded] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const abortRef = useRef<(() => void) | null>(null)
+
+  const history = useQuery(
+    api.aiStreams.getHistory,
+    user?.firebaseUid ? { sessionId: user.firebaseUid } : "skip"
+  )
+  const upsertStreamMutation = useMutation(api.aiStreams.upsertStream)
+  const deleteStreamMutation = useMutation(api.aiStreams.deleteStream)
+
+  // Load history on mount
+  useEffect(() => {
+    if (history && !historyLoaded) {
+      if (history.length > 0) {
+        const loaded = history.map((h: { chunk: string }) => {
+          try {
+            return JSON.parse(h.chunk) as Conversation;
+          } catch { return null; }
+        }).filter(Boolean) as Conversation[];
+        
+        if (loaded.length > 0) {
+          loaded.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          setConversations(loaded);
+          setActiveId(loaded[0].id);
+        }
+      }
+      setHistoryLoaded(true);
+    }
+  }, [history, historyLoaded]);
 
   const activeConv = conversations.find(c => c.id === activeId)!
 
@@ -176,11 +206,24 @@ export default function AiChat() {
     const assistantMsg: Message = { id: assistantId, role: 'assistant', content: '', timestamp: new Date() }
 
     // Set conversation title from first message
-    updateConv(activeId, c => ({
-      ...c,
-      title: c.messages.length === 0 ? text.slice(0, 40) : c.title,
-      messages: [...c.messages, userMsg, assistantMsg]
-    }))
+    let updatedConv: Conversation | null = null;
+    updateConv(activeId, c => {
+      const next = {
+        ...c,
+        title: c.messages.length === 0 ? text.slice(0, 40) : c.title,
+        messages: [...c.messages, userMsg, assistantMsg]
+      };
+      updatedConv = next;
+      return next;
+    })
+
+    if (user && updatedConv) {
+      upsertStreamMutation({
+        fileId: activeId,
+        sessionId: user.firebaseUid,
+        chunk: JSON.stringify(updatedConv)
+      }).catch(console.error);
+    }
 
     setInput('')
     setIsStreaming(true)
@@ -239,6 +282,21 @@ export default function AiChat() {
         }
       }
 
+      // Save final conversation state
+      if (user) {
+        setConversations(prev => {
+          const finalConv = prev.find(c => c.id === activeId);
+          if (finalConv) {
+            upsertStreamMutation({
+              fileId: activeId,
+              sessionId: user.firebaseUid,
+              chunk: JSON.stringify(finalConv)
+            }).catch(console.error);
+          }
+          return prev;
+        });
+      }
+
     } catch (err: any) {
       if (err.name === 'AbortError') {
         toast.info('Generation stopped')
@@ -268,6 +326,10 @@ export default function AiChat() {
   }
 
   const handleDelete = (id: string) => {
+    if (user?.firebaseUid) {
+      deleteStreamMutation({ fileId: id, sessionId: user.firebaseUid }).catch(console.error);
+    }
+    
     setConversations(prev => {
       const next = prev.filter(c => c.id !== id)
       if (next.length === 0) {
@@ -421,7 +483,7 @@ export default function AiChat() {
                 </motion.div>
               )}
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/15 text-primary font-bold border border-primary/20">
-                Jamba 1.5 Mini
+                CodeSphere AI Model
               </span>
             </div>
           </div>
