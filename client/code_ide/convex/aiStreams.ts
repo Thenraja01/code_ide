@@ -37,3 +37,56 @@ export const getChunks = query({
       .collect();
   },
 });
+
+export const getHistory = query({
+  args: { sessionId: v.string() },
+  handler: async (ctx: Ctx, args: Args) => {
+    return await ctx.db
+      .query("aiStreams")
+      .withIndex("by_sessionId", (q: any) => q.eq("sessionId", args.sessionId))
+      .order("asc")
+      .collect();
+  },
+});
+
+export const deleteStream = mutation({
+  args: { fileId: v.string(), sessionId: v.string() },
+  handler: async (ctx: Ctx, args: Args) => {
+    const records = await ctx.db
+      .query("aiStreams")
+      .withIndex("by_fileId_sessionId", (q: any) =>
+        q.eq("fileId", args.fileId).eq("sessionId", args.sessionId)
+      )
+      .collect();
+    for (const record of records) {
+      await ctx.db.delete(record._id);
+    }
+  },
+});
+
+export const upsertStream = mutation({
+  args: { fileId: v.string(), sessionId: v.string(), chunk: v.string() },
+  handler: async (ctx: Ctx, args: Args) => {
+    const existing = await ctx.db
+      .query("aiStreams")
+      .withIndex("by_fileId_sessionId", (q: any) =>
+        q.eq("fileId", args.fileId).eq("sessionId", args.sessionId)
+      )
+      .first();
+      
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        chunk: args.chunk,
+        updatedAt: Date.now(),
+      });
+    } else {
+      await ctx.db.insert("aiStreams", {
+        fileId: args.fileId,
+        sessionId: args.sessionId,
+        chunk: args.chunk,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+    }
+  },
+});

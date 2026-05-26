@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import {
+  Bot,
   CheckSquare,
   ChevronRight,
   Clock,
@@ -24,6 +25,7 @@ const navItems: NavItem[] = [
   { icon: Star, label: "Starred", path: "/dashboard/starred" },
   { icon: Clock, label: "Templates", path: "/dashboard/templates" },
   { icon: CheckSquare, label: "Todo", path: "/dashboard/todo" },
+  { icon: Bot, label: "CodeSpace AI", path: "/dashboard/ai-chat" },
   { icon: Settings, label: "Settings", path: "/dashboard/settings" },
 ];
 

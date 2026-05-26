@@ -35,8 +35,9 @@ export default function ProfilePage() {
     user?.firebaseUid ? { firebaseUid: user.firebaseUid } : "skip"
   );
   const updateProfileMutation = useMutation(api.users.updateProfile);
-  const storeOtpMutation = useMutation(api.users.storeOtp);
+  const verifyOtpMutation = useMutation(api.users.verifyOtp);
   const linkGoogleMutation = useMutation(api.users.linkGoogle);
+  const linkGithubMutation = useMutation(api.users.linkGithub);
 
   // ── Local state ──────────────────────────────────────────────────────────
   const [name, setName] = useState("");
@@ -61,18 +62,19 @@ export default function ProfilePage() {
 
   const token = () => localStorage.getItem("token");
 
-  // ── Save Profile ─────────────────────────────────────────────────────────
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
     setSavingProfile(true);
     try {
-      await axios.put(`${API}/user/update`, { name, bio }, {
-        headers: { Authorization: `Bearer ${token()}` }
+      await updateProfileMutation({
+        firebaseUid: user.firebaseUid,
+        name,
+        bio
       });
       toast.success("Profile saved!");
     } catch (err: any) {
-      toast.error(err.response?.data?.error || "Failed to save");
+      toast.error(err.message || "Failed to save");
     } finally {
       setSavingProfile(false);
     }
@@ -97,20 +99,27 @@ export default function ProfilePage() {
   // ── Verify OTP ───────────────────────────────────────────────────────────
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!otpInput || otpInput.length !== 6) {
+    if (!otpInput || otpInput.length !== 6 || !user) {
       toast.error("Enter the 6-digit code");
       return;
     }
     setVerifyingOtp(true);
     try {
-      await axios.post(`${API}/user/verify-otp`, { otp: otpInput }, {
-        headers: { Authorization: `Bearer ${token()}` }
+      await verifyOtpMutation({
+        firebaseUid: user.firebaseUid,
+        otp: otpInput
       });
+      // We also verify in firebase to stay in sync
+      if (auth.currentUser) {
+        await axios.post(`${API}/user/verify-otp`, { otp: otpInput }, {
+          headers: { Authorization: `Bearer ${token()}` }
+        }).catch(console.error); // fallback just for firebase sync
+      }
       setOtpSent(false);
       setOtpInput("");
       toast.success("Email verified!");
     } catch (err: any) {
-      toast.error(err.response?.data?.error || "Invalid code");
+      toast.error(err.message || "Invalid code");
     } finally {
       setVerifyingOtp(false);
     }
@@ -144,17 +153,18 @@ export default function ProfilePage() {
   // ── Link GitHub ──────────────────────────────────────────────────────────
   const handleLinkGithub = async () => {
     const firebaseUser = auth.currentUser;
-    if (!firebaseUser) return;
+    if (!firebaseUser || !user) return;
     setLinkingGithub(true);
     try {
       const result = await linkWithPopup(firebaseUser, githubProvider);
       const ghUser = result.user;
       const ghInfo = result.user.providerData.find(p => p.providerId === "github.com");
 
-      await axios.post(`${API}/user/link-github`, {
+      await linkGithubMutation({
+        firebaseUid: user.firebaseUid,
         githubId: ghInfo?.uid ?? "",
         githubUsername: ghInfo?.displayName ?? ghUser.displayName ?? "",
-      }, { headers: { Authorization: `Bearer ${token()}` } });
+      });
 
       toast.success("GitHub account linked!");
     } catch (err: any) {

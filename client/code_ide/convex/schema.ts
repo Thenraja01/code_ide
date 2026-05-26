@@ -87,7 +87,9 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
     expiresAt: v.optional(v.number()),
-  }).index("by_fileId_sessionId", ["fileId", "sessionId"]),
+  })
+    .index("by_fileId_sessionId", ["fileId", "sessionId"])
+    .index("by_sessionId", ["sessionId"]),
 
   jobStatus: defineTable({
     fileId: v.string(),
