@@ -1,4 +1,5 @@
 import Editor, { type OnMount } from '@monaco-editor/react'
+import type * as monaco from 'monaco-editor'
 import { useCallback, useMemo, useRef } from 'react'
 import axios from 'axios'
 
@@ -111,7 +112,7 @@ export default function MonacoEditor({
     })
   }
 
-  const options = useMemo(
+  const options: monaco.editor.IStandaloneEditorConstructionOptions = useMemo(
     () => ({
       fontSize: 14,
       fontFamily: "'JetBrains Mono', Menlo, Monaco, 'Courier New', monospace",
