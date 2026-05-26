@@ -1,5 +1,4 @@
 import { Terminal, Trash2, Loader2, Play } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
 interface ExecutionOutputProps {
   output: string | null;

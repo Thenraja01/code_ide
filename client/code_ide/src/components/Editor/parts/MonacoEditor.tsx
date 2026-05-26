@@ -128,7 +128,7 @@ export default function MonacoEditor({
       tabSize: 2,
       insertSpaces: true,
       wordWrap: 'on',
-      lineNumbers: 'on',
+      lineNumbers: (lineNumber: number) => `${lineNumber}`,
       glyphMargin: true,
       folding: true,
       bracketPairColorization: { enabled: true },

@@ -2,7 +2,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import SectionHeader from "@/components/dashboard/SectionHeader";
 import ProjectTable from "@/components/dashboard/ProjectTable/ProjectTable";
 import {
-  Plus, LayoutGrid, List, Search, Filter,
+  LayoutGrid, List, Search, Filter,
   Github, Link2, FolderGit2, X, Loader2, ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
