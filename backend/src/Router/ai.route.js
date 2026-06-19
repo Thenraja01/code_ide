@@ -3,19 +3,77 @@ import aiController from '../controllers/ai.controller.js';
 import authMiddleware from '../middlewares/auth.middleware.js';
 import { inngest } from '../inngest/client.js';
 import { extractUrlContent } from '../services/ScraperService.js';
-import { abortJob } from '../services/AiService.js';
+import { indexChunks, clearProjectIndex } from '../ai/rag/VectorStore.js';
 
 const router = Router();
 
-router.post('/code', authMiddleware, aiController.askAi);
-router.post('/generate', authMiddleware, aiController.generateCode);
-router.post('/autocomplete', authMiddleware, aiController.autocompleteCode);
-router.post('/agent', authMiddleware, aiController.runAgent);
-router.post('/chat', authMiddleware, aiController.chatWithAi);
+// ─── Core AI Chat & Agent (WebSocket + SSE streaming) ────────────────────────
+router.post('/chat',         authMiddleware, aiController.chatWithAi);
+router.post('/agent',        authMiddleware, aiController.runAgent);
 
-router.post('/extract', authMiddleware, async (req, res) => {
+// ─── Code Operations ──────────────────────────────────────────────────────────
+router.post('/code',         authMiddleware, aiController.askAi);
+router.post('/autocomplete', authMiddleware, aiController.autocompleteCode);
+router.post('/generate',     authMiddleware, aiController.generateCode);
+
+// ─── AI Panel Feature Endpoints ───────────────────────────────────────────────
+router.post('/explain',      authMiddleware, aiController.explainCode);
+router.post('/bugs',         authMiddleware, aiController.detectBugs);
+router.post('/tests',        authMiddleware, aiController.generateTests);
+router.post('/docs',         authMiddleware, aiController.generateDocs);
+
+// ─── Project Generation (Inngest orchestration) ───────────────────────────────
+router.post('/project.create', authMiddleware, async (req, res) => {
+  const { projectId, prompt, language } = req.body;
+  if (!projectId) return res.status(400).json({ error: 'Missing projectId' });
+
+  await inngest.send({ name: 'project.create', data: { projectId, prompt, language } });
+  res.json({ status: 'Project orchestration started' });
+});
+
+// ─── Background Analysis ──────────────────────────────────────────────────────
+router.post('/analyze', authMiddleware, async (req, res) => {
+  const { code, fileId, sessionId } = req.body;
+  await inngest.send({ name: 'code/analyze', data: { code, fileId, sessionId } });
+  res.json({ status: 'Analysis started' });
+});
+
+// ─── RAG: Index project files into Chroma ────────────────────────────────────
+router.post('/index-project', authMiddleware, async (req, res) => {
+  const { projectId, files } = req.body;
+  if (!projectId || !files?.length) {
+    return res.status(400).json({ error: 'projectId and files array are required' });
+  }
+
   try {
-    const { url } = req.body;
+    // files: [{ id, name, content }]
+    const chunks = files
+      .filter((f) => f.content && f.content.trim())
+      .map((f) => ({
+        id: f.id,
+        content: f.content,
+        metadata: { filename: f.name, projectId },
+      }));
+
+    await indexChunks(projectId, chunks);
+    res.json({ status: 'Indexed', count: chunks.length });
+  } catch (err) {
+    console.error('[RAG Index Error]', err.message);
+    res.status(500).json({ error: 'Failed to index project', details: err.message });
+  }
+});
+
+// ─── RAG: Clear project index ─────────────────────────────────────────────────
+router.delete('/index-project/:projectId', authMiddleware, async (req, res) => {
+  await clearProjectIndex(req.params.projectId).catch(() => {});
+  res.json({ status: 'Cleared' });
+});
+
+// ─── URL Scraping for AI context ──────────────────────────────────────────────
+router.post('/extract', authMiddleware, async (req, res) => {
+  const { url } = req.body;
+  if (!url) return res.status(400).json({ error: 'url is required' });
+  try {
     const content = await extractUrlContent(url);
     res.json({ content });
   } catch (err) {
@@ -23,61 +81,25 @@ router.post('/extract', authMiddleware, async (req, res) => {
   }
 });
 
-router.post('/project.create', authMiddleware, async (req, res) => {
-  try {
-    const { projectId, prompt, language } = req.body;
-    console.log(`[AI Route] Starting project orchestration for ID: ${projectId}`);
-    
-    if (!projectId) {
-      return res.status(400).json({ error: "Missing projectId" });
-    }
-
-    await inngest.send({ 
-      name: "project.create", 
-      data: { projectId, prompt, language } 
-    });
-
-    res.json({ status: "Project Orchestration started" });
-  } catch (err) {
-    console.error("Inngest Send Error Details:", {
-      message: err.message,
-      stack: err.stack,
-      projectId: req.body.projectId
-    });
-    res.status(500).json({ 
-      error: "Failed to start project orchestration.",
-      details: err.message,
-      hint: "Ensure Inngest dev server is running (npx inngest-cli@latest dev)"
-    });
-  }
-});
-
-router.post('/analyze', authMiddleware, async (req, res) => {
-  try {
-    const { code, fileId, sessionId } = req.body;
-    await inngest.send({ name: "code/analyze", data: { code, fileId, sessionId } });
-    res.json({ status: "Analysis started" });
-  } catch (err) {
-    console.error("Inngest Analyze Error:", err.message);
-    res.status(500).json({ error: "Failed to start analysis. Ensure Inngest dev server is running." });
-  }
-});
-
+// ─── Repo indexing via Inngest ────────────────────────────────────────────────
 router.post('/index', authMiddleware, async (req, res) => {
-  try {
-    const { url } = req.body;
-    await inngest.send({ name: "repo/index", data: { url } });
-    res.json({ status: "Indexing started" });
-  } catch (err) {
-    console.error("Inngest Index Error:", err.message);
-    res.status(500).json({ error: "Failed to start indexing. Ensure Inngest dev server is running." });
-  }
+  const { url } = req.body;
+  await inngest.send({ name: 'repo/index', data: { url } });
+  res.json({ status: 'Indexing started' });
 });
 
+// ─── Abort streaming session ──────────────────────────────────────────────────
 router.post('/abort', authMiddleware, async (req, res) => {
   const { sessionId } = req.body;
-  const aborted = abortJob(sessionId);
-  res.json({ status: aborted ? "Aborted" : "Not found" });
+  // Import clients map from server — close the WS or signal abort
+  const { clients } = await import('../../server.js').catch(() => ({ clients: new Map() }));
+  const ws = clients.get(sessionId);
+  if (ws) {
+    ws.send(JSON.stringify({ type: 'abort' }));
+    res.json({ status: 'Aborted' });
+  } else {
+    res.json({ status: 'Not found' });
+  }
 });
 
 export default router;

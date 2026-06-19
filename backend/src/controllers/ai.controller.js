@@ -1,169 +1,233 @@
-import { AiService, AiModelcreate } from '../services/AiService.js';
+import { developerAgent } from '../ai/agents/DeveloperAgent.js';
 import { inngest } from '../inngest/client.js';
+import { searchChunks, buildRagContext } from '../ai/rag/VectorStore.js';
+import { clients } from '../../server.js';
 import crypto from 'crypto';
 
-// Simple in-memory cache for autocomplete requests (low-budget caching)
+// ─── Simple in-memory autocomplete cache ─────────────────────────────────────
 const autocompleteCache = new Map();
 
-const generateCode = async (req, res) => {
-  try {
-    const { prompt, fileId, sessionId, language } = req.body;
-    const userId = req.user.uid;
-    const requestId = crypto.randomUUID();
+// ─── Helper: push tokens to the WebSocket client if connected ─────────────────
+function wsStream(sessionId, type, payload) {
+  const ws = clients?.get(sessionId);
+  if (ws && ws.readyState === 1 /* OPEN */) {
+    ws.send(JSON.stringify({ type, ...payload }));
+    return true;
+  }
+  return false;
+}
 
-    if (!prompt || !fileId || !sessionId) {
-      return res.status(400).json({ error: "Prompt, fileId, and sessionId are required" });
+// ─── POST /api/ai/chat ────────────────────────────────────────────────────────
+export const chatWithAi = async (req, res) => {
+  const { messages, sessionId, projectId } = req.body;
+
+  if (!messages?.length) {
+    return res.status(400).json({ error: 'messages array is required' });
+  }
+
+  const sid = sessionId || crypto.randomUUID();
+  const lastUser = [...messages].reverse().find((m) => m.role === 'user');
+  if (!lastUser) return res.status(400).json({ error: 'No user message found' });
+
+  // Build RAG context from project if projectId is provided
+  let ragContext = '';
+  if (projectId) {
+    const chunks = await searchChunks(projectId, lastUser.content, 5).catch(() => []);
+    ragContext = buildRagContext(chunks);
+  }
+
+  const history = messages.slice(0, -1);
+
+  // Attempt WebSocket delivery first (preferred — low latency)
+  const wsConnected = wsStream(sid, 'stream_start', { sessionId: sid });
+
+  if (wsConnected) {
+    // Stream via WebSocket
+    res.json({ sessionId: sid, streaming: 'websocket' });
+
+    try {
+      await developerAgent.stream('chat', lastUser.content, (token) => {
+        wsStream(sid, 'token', { token });
+      }, history, ragContext);
+      wsStream(sid, 'stream_end', {});
+    } catch (err) {
+      console.error('[AI Chat WS Error]', err.message);
+      wsStream(sid, 'error', { message: err.message });
     }
-
-    console.log(`[AI][${requestId}] Generation started for User ${userId}`);
-
-    await inngest.send({ 
-      name: "code.generate", 
-      data: { 
-        prompt, 
-        fileId, 
-        sessionId, 
-        language: language || "javascript",
-        userId,
-        requestId
-      } 
-    });
-
-    res.json({ message: "Code generation started", sessionId, requestId });
-  } catch (error) {
-    console.error("GenerateCode Error:", error.message);
-    res.status(500).json({ error: "Failed to start code generation" });
-  }
-};
-
-const autocompleteCode = async (req, res) => {
-  try {
-    const { prompt, language } = req.body;
-    const userId = req.user.uid;
-    if (!prompt) return res.status(400).json({ error: "Prompt is required" });
-
-    // Cache key based on prompt and language
-    const cacheKey = `${language}:${prompt.slice(-100)}`; // Check last 100 chars
-    if (autocompleteCache.has(cacheKey)) {
-        return res.json({ suggestion: autocompleteCache.get(cacheKey), cached: true });
-    }
-
-    const response = await AiService.askCodeAssistant(
-      `Autocomplete the following code in ${language || "javascript"}. Return ONLY the suggested code snippet, no explanation.`,
-      prompt
-    );
-
-    if (response) {
-        autocompleteCache.set(cacheKey, response);
-        // Evict cache after 1 minute to keep it fresh
-        setTimeout(() => autocompleteCache.delete(cacheKey), 60000);
-    }
-
-    res.json({ suggestion: response });
-  } catch (error) {
-    console.error("Autocomplete Error:", error.message);
-    res.status(500).json({ error: "Autocomplete failed" });
-  }
-};
-
-const askAi = async (req, res) => {
-  try {
-    const { action, code } = req.body;
-    if (!action || !code) return res.status(400).json({ error: "Action and Code are required" });
-    const response = await AiService.askCodeAssistant(action, code);
-    res.json({ response });
-  } catch (error) {
-    console.error("AiController Error:", error.message);
-    res.status(500).json({ error: error.message });
-  }
-};
-
-const Aimodelcreater = async (req, res) => {
-  try {
-    const { action, message } = req.body;
-    if (!action || !message) return res.status(400).json({ error: "Action and message are required" });
-    const response = await AiService.askCodeAssistant(action, message);
-    res.json({ response });
-  } catch (error) {
-    console.error("AiController Error:", error.message);
-    res.status(500).json({ error: error.message });
-  }
-};
-
-const runAgent = async (req, res) => {
-  try {
-    const { prompt, sessionId, context } = req.body;
-    if (!prompt) return res.status(400).json({ error: "Prompt is required" });
-
-    const response = await AiModelcreate.askCodeAssistant("AGENT", prompt, sessionId, context);
-    
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-
-    response.data.on('data', chunk => {
-        res.write(chunk);
-    });
-
-    response.data.on('end', () => {
-        res.end();
-    });
-
-  } catch (error) {
-    console.error("Agent Error:", error.message);
-    res.status(500).json({ error: "Agent execution failed" });
-  }
-};
-
-const chatWithAi = async (req, res) => {
-  try {
-    const { messages, sessionId } = req.body;
-    if (!messages || !Array.isArray(messages) || messages.length === 0) {
-      return res.status(400).json({ error: 'messages array is required' });
-    }
-
-    const sid = sessionId || crypto.randomUUID();
-
-    // Pass full history for multi-turn context
-    // AiModelcreate.askCodeAssistant takes a prompt string, so we pass
-    // the full conversation as a serialised context string
-    const historyContext = messages
-      .slice(0, -1) // all but last
-      .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
-      .join('\n');
-
-    const lastUser = [...messages].reverse().find(m => m.role === 'user');
-    if (!lastUser) return res.status(400).json({ error: 'No user message found' });
-
-    const promptWithHistory = historyContext
-      ? `Previous conversation:\n${historyContext}\n\nUser: ${lastUser.content}`
-      : lastUser.content;
-
-    const response = await AiModelcreate.askCodeAssistant('CHAT', promptWithHistory, sid, null);
-
+  } else {
+    // Fallback: SSE streaming over HTTP
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('X-Accel-Buffering', 'no');
 
-    if (!response || !response.data) {
+    try {
+      await developerAgent.stream('chat', lastUser.content, (token) => {
+        const chunk = JSON.stringify({ choices: [{ delta: { content: token } }] });
+        res.write(`data: ${chunk}\n\n`);
+      }, history, ragContext);
       res.write('data: [DONE]\n\n');
-      return res.end();
-    }
-
-    response.data.on('data', chunk => res.write(chunk));
-    response.data.on('end', () => res.end());
-    response.data.on('error', err => {
-      console.error('Stream error:', err.message);
       res.end();
-    });
-
-  } catch (error) {
-    console.error('chatWithAi Error:', error.message);
-    if (!res.headersSent) {
-      res.status(500).json({ error: 'Chat AI failed' });
+    } catch (err) {
+      console.error('[AI Chat SSE Error]', err.message);
+      res.write(`data: [DONE]\n\n`);
+      res.end();
     }
   }
 };
 
-export default { askAi, Aimodelcreater, generateCode, autocompleteCode, runAgent, chatWithAi };
+// ─── POST /api/ai/agent ───────────────────────────────────────────────────────
+export const runAgent = async (req, res) => {
+  const { prompt, sessionId, context, projectId } = req.body;
+  if (!prompt) return res.status(400).json({ error: 'Prompt is required' });
+
+  const sid = sessionId || crypto.randomUUID();
+
+  let ragContext = context || '';
+  if (projectId && !ragContext) {
+    const chunks = await searchChunks(projectId, prompt, 5).catch(() => []);
+    ragContext = buildRagContext(chunks);
+  }
+
+  const wsConnected = wsStream(sid, 'stream_start', { sessionId: sid });
+
+  if (wsConnected) {
+    res.json({ sessionId: sid, streaming: 'websocket' });
+    try {
+      await developerAgent.stream('agent', prompt, (token) => {
+        wsStream(sid, 'token', { token });
+      }, [], ragContext);
+      wsStream(sid, 'stream_end', {});
+    } catch (err) {
+      wsStream(sid, 'error', { message: err.message });
+    }
+  } else {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+
+    try {
+      await developerAgent.stream('agent', prompt, (token) => {
+        res.write(`data: ${JSON.stringify({ choices: [{ delta: { content: token } }] })}\n\n`);
+      }, [], ragContext);
+      res.write('data: [DONE]\n\n');
+      res.end();
+    } catch (err) {
+      res.write('data: [DONE]\n\n');
+      res.end();
+    }
+  }
+};
+
+// ─── POST /api/ai/code ────────────────────────────────────────────────────────
+export const askAi = async (req, res) => {
+  const { action, code, mode } = req.body;
+  if (!action || !code) return res.status(400).json({ error: 'Action and Code are required' });
+
+  try {
+    const aiMode = mode || 'code';
+    const response = await developerAgent.invoke(aiMode, `${action}\n\n${code}`);
+    res.json({ response });
+  } catch (err) {
+    console.error('[AI Code Error]', err.message);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// ─── POST /api/ai/explain ─────────────────────────────────────────────────────
+export const explainCode = async (req, res) => {
+  const { code } = req.body;
+  if (!code) return res.status(400).json({ error: 'code is required' });
+  try {
+    const response = await developerAgent.invoke('explain', code);
+    res.json({ response });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// ─── POST /api/ai/bugs ────────────────────────────────────────────────────────
+export const detectBugs = async (req, res) => {
+  const { code } = req.body;
+  if (!code) return res.status(400).json({ error: 'code is required' });
+  try {
+    const response = await developerAgent.invoke('bugs', code);
+    res.json({ response });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// ─── POST /api/ai/tests ───────────────────────────────────────────────────────
+export const generateTests = async (req, res) => {
+  const { code, language } = req.body;
+  if (!code) return res.status(400).json({ error: 'code is required' });
+  try {
+    const response = await developerAgent.invoke('tests', `Language: ${language || 'javascript'}\n\n${code}`);
+    res.json({ response });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// ─── POST /api/ai/docs ────────────────────────────────────────────────────────
+export const generateDocs = async (req, res) => {
+  const { code, language } = req.body;
+  if (!code) return res.status(400).json({ error: 'code is required' });
+  try {
+    const response = await developerAgent.invoke('docs', `Language: ${language || 'javascript'}\n\n${code}`);
+    res.json({ response });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// ─── POST /api/ai/autocomplete ────────────────────────────────────────────────
+export const autocompleteCode = async (req, res) => {
+  const { prompt, language } = req.body;
+  if (!prompt) return res.status(400).json({ error: 'Prompt is required' });
+
+  const cacheKey = `${language}:${prompt.slice(-100)}`;
+  if (autocompleteCache.has(cacheKey)) {
+    return res.json({ suggestion: autocompleteCache.get(cacheKey), cached: true });
+  }
+
+  try {
+    const suggestion = await developerAgent.invoke(
+      'code',
+      `Autocomplete the following ${language || 'javascript'} code. Return ONLY the continuation snippet, no explanation.\n\n${prompt}`
+    );
+
+    if (suggestion) {
+      autocompleteCache.set(cacheKey, suggestion);
+      setTimeout(() => autocompleteCache.delete(cacheKey), 60000);
+    }
+    res.json({ suggestion });
+  } catch (err) {
+    console.error('[Autocomplete Error]', err.message);
+    res.status(500).json({ error: 'Autocomplete failed' });
+  }
+};
+
+// ─── POST /api/ai/generate ────────────────────────────────────────────────────
+export const generateCode = async (req, res) => {
+  const { prompt, fileId, sessionId, language } = req.body;
+  if (!prompt || !fileId || !sessionId) {
+    return res.status(400).json({ error: 'Prompt, fileId, and sessionId are required' });
+  }
+
+  const requestId = crypto.randomUUID();
+
+  await inngest.send({
+    name: 'code.generate',
+    data: { prompt, fileId, sessionId, language: language || 'javascript', userId: req.user.uid, requestId },
+  });
+
+  res.json({ message: 'Code generation started', sessionId, requestId });
+};
+
+export default {
+  chatWithAi, runAgent, askAi, explainCode, detectBugs,
+  generateTests, generateDocs, autocompleteCode, generateCode,
+};
