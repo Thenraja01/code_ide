@@ -1,105 +1,43 @@
 import { inngest } from "../client.js";
+import { developerAgent } from "../../ai/agents/DeveloperAgent.js";
 import axios from "axios";
-import * as Sentry from "@sentry/node";
-import { ConvexHttpClient } from "convex/browser";
-
-const convex = new ConvexHttpClient(process.env.CONVEX_URL || process.env.VITE_CONVEX_URL || "http://127.0.0.1:3210");
 
 export const aiAnalysis = inngest.createFunction(
-  { 
-    id: "ai-code-analysis",
-    name: "AI Code Analysis",
-    retries: 3,
-    triggers: [{ event: "code/analyze" }]
+  {
+    id: "ai-analysis",
+    name: "Background Code Analysis",
+    triggers: [{ event: "code/analyze" }],
+    retries: 2,
   },
   async ({ event, step }) => {
-    const { code, fileId, sessionId, model = "jamba-mini" } = event.data;
+    const { code, fileId, sessionId } = event.data;
+    if (!code?.trim()) return { status: "skipped", reason: "empty code" };
 
-    Sentry.setContext("ai_job", {
-      fileId,
-      sessionId,
-      model,
+    const baseUrl = process.env.CONVEX_URL || process.env.VITE_CONVEX_URL || "http://127.0.0.1:3210";
+    const siteUrl = baseUrl.includes(".cloud") ? baseUrl.replace(".cloud", ".site") : baseUrl;
+    const finalUrl = siteUrl.endsWith("/") ? siteUrl : `${siteUrl}/`;
+
+    // 1. Bug analysis
+    const bugs = await step.run("ai.detect_bugs", async () => {
+      return developerAgent.invoke("bugs", code);
     });
 
-    try {
-      await step.run("analyze-code-stream", async () => {
-        // ALWAYS update status in Convex first (Source of Truth)
-        if (convex.address && fileId && sessionId) {
-           await convex.mutation("jobStatus:updateStatus", { fileId, sessionId, status: "running" });
-        }
+    // 2. Code explanation  
+    const explanation = await step.run("ai.explain", async () => {
+      return developerAgent.invoke("explain", code);
+    });
 
-        const response = await axios.post(
-          "https://api.ai21.com/studio/v1/chat/completions",
-          {
-             model: model,
-             messages: [
-               { role: "system", content: "You are a professional code reviewer. Analyze the following code and suggest specific improvements or fix bugs. Be concise." },
-               { role: "user", content: code }
-             ],
-             stream: true,
-          },
-          {
-            headers: { Authorization: `Bearer ${process.env.AI21_API_KEY}` },
-            responseType: "stream",
-            timeout: 60000 
-          }
-        );
+    // 3. Push results back to Convex/client  
+    await step.run("convex.push_analysis", async () => {
+      await axios.post(`${finalUrl}save_analysis_result`, {
+        fileId,
+        sessionId,
+        bugs,
+        explanation,
+        analyzedAt: new Date().toISOString(),
+      }).catch((err) => console.warn("[Analysis] Push failed:", err.message));
+    });
 
-        return new Promise((resolve, reject) => {
-            let buffer = "";
-            const BATCH_SIZE = 15; // Batch characters to optimize Convex writes
-
-            response.data.on("data", async (chunk) => {
-               // Check status first - if cancelled, stop processing
-               if (convex.address && fileId && sessionId) {
-                  const currentStatus = await convex.query("jobStatus:getStatus", { fileId, sessionId });
-                  if (currentStatus?.status === "cancelled") {
-                     response.data.destroy(); // Stop the stream
-                     return resolve("cancelled");
-                  }
-               }
-
-               const lines = chunk.toString().split('\n');
-               for (const line of lines) {
-                  if (line.startsWith('data: ') && !line.includes('[DONE]')) {
-                     try {
-                        const parsed = JSON.parse(line.substring(6));
-                        const text = parsed.choices?.[0]?.delta?.content;
-                        if (text) {
-                           buffer += text;
-                           if (buffer.length >= BATCH_SIZE && convex.address && fileId && sessionId) {
-                               await convex.mutation("aiStreams:addChunk", { fileId, sessionId, chunk: buffer });
-                               buffer = "";
-                           }
-                        }
-                     } catch(e) {}
-                  }
-               }
-            });
-            
-            response.data.on("end", async () => {
-                if (buffer && convex.address && fileId && sessionId) {
-                    await convex.mutation("aiStreams:addChunk", { fileId, sessionId, chunk: buffer });
-                }
-                if (convex.address && fileId && sessionId) {
-                    await convex.mutation("jobStatus:updateStatus", { fileId, sessionId, status: "done" });
-                }
-                resolve("done");
-            });
-            
-            response.data.on("error", async (err) => {
-               Sentry.captureException(err);
-               if (convex.address && fileId && sessionId) {
-                 await convex.mutation("jobStatus:updateStatus", { fileId, sessionId, status: "error" }).catch(()=>{});
-               }
-               reject(err);
-            });
-        });
-      });
-      return { status: "success" };
-    } catch (err) {
-      Sentry.captureException(err);
-      throw err;
-    }
+    return { status: "done", fileId };
   }
 );

@@ -350,22 +350,8 @@ export default function CodeEditor() {
 
         <PanelGroup direction="horizontal">
 
-          {/* AI Panel */}
-          <Panel defaultSize={20} minSize={15}>
-            <AIPanel
-              fileId={activeTabId || undefined}
-              projectId={projectId}
-              sessionId={sessionId}
-              isOpen
-              isEmbedded
-              injectedUrlContent={injectedUrl}
-            />
-          </Panel>
-
-          <PanelResizeHandle className="w-[1px] bg-[#222]" />
-
-          {/* Sidebar */}
-          <Panel defaultSize={15}>
+          {/* Sidebar / File Explorer */}
+          <Panel defaultSize={16} minSize={12}>
             <Sidebar
               activeTab={sidebarTab}
               projectId={projectId as any}
@@ -377,8 +363,8 @@ export default function CodeEditor() {
 
           <PanelResizeHandle className="w-[1px] bg-[#222]" />
 
-          {/* Main */}
-          <Panel defaultSize={65}>
+          {/* Main Editor + Terminal */}
+          <Panel defaultSize={60}>
             <div className="flex flex-col h-full">
 
               <TabStructure projectId={projectId as any} />
@@ -401,17 +387,16 @@ export default function CodeEditor() {
                   )}
                 </Panel>
 
-
                 {showTerminal && (
                   <>
                     <PanelResizeHandle className="h-[1px] bg-[#222]" />
                     <Panel defaultSize={30}>
                       <div className="h-full w-full bg-[#0c0c0c] relative">
                         {pistonOutput !== null || isRunningCode ? (
-                          <ExecutionOutput 
-                            output={pistonOutput} 
-                            isRunning={isRunningCode} 
-                            onClear={() => setPistonOutput(null)} 
+                          <ExecutionOutput
+                            output={pistonOutput}
+                            isRunning={isRunningCode}
+                            onClear={() => setPistonOutput(null)}
                           />
                         ) : (
                           <TerminalPanel projectId={projectId || ''} />
@@ -423,6 +408,21 @@ export default function CodeEditor() {
 
               </PanelGroup>
             </div>
+          </Panel>
+
+          <PanelResizeHandle className="w-[1px] bg-[#222]" />
+
+          {/* AI Panel — right side */}
+          <Panel defaultSize={24} minSize={18}>
+            <AIPanel
+              fileId={activeTabId || undefined}
+              projectId={projectId}
+              sessionId={sessionId}
+              isOpen
+              isEmbedded
+              injectedUrlContent={injectedUrl}
+              activeFileContent={buffers[activeTabId || ''] || ''}
+            />
           </Panel>
 
         </PanelGroup>
